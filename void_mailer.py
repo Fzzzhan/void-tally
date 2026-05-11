@@ -5,6 +5,7 @@ Sends daily void time reports via email
 """
 
 import smtplib
+import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
@@ -107,6 +108,22 @@ class VoidMailer:
             config: Email configuration dict
         """
         self.config = config
+
+    def _connect_smtp(self):
+        """Create an SMTP connection compatible with both SSL and STARTTLS servers."""
+        smtp_server = self.config["smtp_server"]
+        smtp_port = int(self.config["smtp_port"])
+        context = ssl.create_default_context()
+
+        if smtp_port == 465:
+            return smtplib.SMTP_SSL(smtp_server, smtp_port, context=context)
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.ehlo()
+        if server.has_extn("starttls"):
+            server.starttls(context=context)
+            server.ehlo()
+        return server
 
     def format_time(self, ms: int) -> str:
         """
@@ -332,8 +349,7 @@ class VoidMailer:
             msg.attach(html_part)
 
             # Send email
-            with smtplib.SMTP(self.config['smtp_server'], self.config['smtp_port']) as server:
-                server.starttls()
+            with self._connect_smtp() as server:
                 server.login(self.config['smtp_username'], self.config['smtp_password'])
                 server.send_message(msg)
 
@@ -364,16 +380,18 @@ def send_daily_report_now():
     today = datetime.now(timezone.utc)
     date_str = today.strftime("%Y-%m-%d")
 
-    # Get daily stats
-    daily_stats_list = storage.get_daily_stats(days=1)
-    if not daily_stats_list:
+    # Get today's sessions after deduplication so email totals match the dashboard
+    sessions = storage.load_sessions_by_date(today, deduplicate=True)
+    if not sessions:
         print(f"No statistics available for {date_str}")
         return False
 
+    daily_stats_list = storage.get_daily_stats(days=1, deduplicate=True)
     daily_stats = daily_stats_list[0]
 
-    # Get today's sessions
-    sessions = storage.load_sessions_by_date(today)
+    if daily_stats.get("sessions", 0) == 0:
+        print(f"No statistics available for {date_str}")
+        return False
 
     # Send email
     mailer = VoidMailer(config)

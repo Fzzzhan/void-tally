@@ -48,7 +48,7 @@ class VoidDashboard:
         print()
 
         summary = self.storage.get_statistics_summary(self.tool_filter, self.project_filter)
-        today_sessions = self.storage.load_sessions_by_date(datetime.now(timezone.utc))
+        today_sessions = self.storage.load_sessions_by_date(datetime.now(timezone.utc), deduplicate=True)
 
         # Apply filters to session list (consistent with summary)
         if self.tool_filter or self.project_filter:
@@ -420,58 +420,7 @@ class VoidDashboard:
         Returns:
             List of unique sessions (latest/most-complete record for each)
         """
-        if not sessions:
-            return []
-
-        from collections import defaultdict
-        from datetime import datetime, timedelta
-
-        sessions_with_id = [s for s in sessions if s.get('session_id')]
-        sessions_without_id = [s for s in sessions if not s.get('session_id')]
-
-        unique_sessions = []
-
-        # --- New records: deduplicate by session_id ---
-        if sessions_with_id:
-            by_session_id: Dict[str, List[Dict]] = defaultdict(list)
-            for s in sessions_with_id:
-                by_session_id[s['session_id']].append(s)
-
-            for sid_group in by_session_id.values():
-                # Keep the record with the highest void_duration_ms (most complete save)
-                best = max(sid_group, key=lambda s: s.get('void_duration_ms', 0))
-                unique_sessions.append(best)
-
-        # --- Legacy records: use 5-minute time-window deduplication ---
-        if sessions_without_id:
-            grouped: Dict = defaultdict(list)
-            for session in sessions_without_id:
-                key = (session.get('tool'), session.get('project_path'))
-                grouped[key].append(session)
-
-            for group_sessions in grouped.values():
-                sorted_sessions = sorted(group_sessions, key=lambda s: s.get('timestamp', ''))
-                if not sorted_sessions:
-                    continue
-
-                window_sessions = [sorted_sessions[0]]
-                for session in sorted_sessions[1:]:
-                    try:
-                        prev_time = datetime.fromisoformat(window_sessions[-1].get('timestamp', '').replace('Z', '+00:00'))
-                        sess_time = datetime.fromisoformat(session.get('timestamp', '').replace('Z', '+00:00'))
-                        if (sess_time - prev_time) > timedelta(minutes=5):
-                            window_sessions.append(session)
-                        else:
-                            # Same session window: keep the one with higher void_duration_ms
-                            if session.get('void_duration_ms', 0) >= window_sessions[-1].get('void_duration_ms', 0):
-                                window_sessions[-1] = session
-                    except Exception:
-                        window_sessions.append(session)
-                unique_sessions.extend(window_sessions)
-
-        # Sort by timestamp to maintain chronological order
-        unique_sessions.sort(key=lambda s: s.get('timestamp', ''))
-        return unique_sessions
+        return self.storage.deduplicate_sessions(sessions)
 
     def _calculate_summary(self, sessions: List[Dict]) -> Dict:
         """

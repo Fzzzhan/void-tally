@@ -8,6 +8,8 @@ import os
 import json
 from pathlib import Path
 from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import timedelta
 from typing import Dict, List, Optional
 from void_tracker import SessionStatistics
 
@@ -208,18 +210,78 @@ class DataStorage:
 
         return sessions
 
-    def load_sessions_by_date(self, date: datetime, include_all: bool = False) -> List[Dict]:
+    def deduplicate_sessions(self, sessions: List[Dict]) -> List[Dict]:
+        """
+        Deduplicate sessions by keeping the most complete record for each session.
+
+        Strategy:
+        1. Records with a session_id are grouped by session_id and the record with
+           the highest void_duration_ms is kept.
+        2. Legacy records without a session_id are grouped by (tool, project_path)
+           and merged using a 5-minute time window.
+        """
+        sessions_with_id = [s for s in sessions if s.get("session_id")]
+        sessions_without_id = [s for s in sessions if not s.get("session_id")]
+
+        unique_sessions: List[Dict] = []
+
+        if sessions_with_id:
+            by_session_id: Dict[str, List[Dict]] = defaultdict(list)
+            for session in sessions_with_id:
+                by_session_id[session["session_id"]].append(session)
+
+            for sid_group in by_session_id.values():
+                best = max(sid_group, key=lambda s: s.get("void_duration_ms", 0))
+                unique_sessions.append(best)
+
+        if sessions_without_id:
+            grouped: Dict = defaultdict(list)
+            for session in sessions_without_id:
+                key = (session.get("tool"), session.get("project_path"))
+                grouped[key].append(session)
+
+            for group_sessions in grouped.values():
+                sorted_sessions = sorted(group_sessions, key=lambda s: s.get("timestamp", ""))
+                if not sorted_sessions:
+                    continue
+
+                window_sessions = [sorted_sessions[0]]
+                for session in sorted_sessions[1:]:
+                    try:
+                        previous_time = datetime.fromisoformat(
+                            window_sessions[-1].get("timestamp", "").replace("Z", "+00:00")
+                        )
+                        session_time = datetime.fromisoformat(
+                            session.get("timestamp", "").replace("Z", "+00:00")
+                        )
+                        if (session_time - previous_time) > timedelta(minutes=5):
+                            window_sessions.append(session)
+                        elif session.get("void_duration_ms", 0) >= window_sessions[-1].get("void_duration_ms", 0):
+                            window_sessions[-1] = session
+                    except ValueError:
+                        window_sessions.append(session)
+
+                unique_sessions.extend(window_sessions)
+
+        unique_sessions.sort(key=lambda s: s.get("timestamp", ""))
+        return unique_sessions
+
+    def load_sessions_by_date(self, date: datetime, include_all: bool = False,
+                              deduplicate: bool = False) -> List[Dict]:
         """
         Load session data for a specific date
 
         Args:
             date: Target date
             include_all: If True, include all sessions. If False (default), only AI tools.
+            deduplicate: If True, merge auto-saves and duplicate session records first.
 
         Returns:
             List of session data
         """
         all_sessions = self.load_all_sessions(include_all=include_all)
+        if deduplicate:
+            all_sessions = self.deduplicate_sessions(all_sessions)
         date_str = date.strftime("%Y-%m-%d")
 
         return [
@@ -229,7 +291,8 @@ class DataStorage:
 
     def get_statistics_summary(self, tool_filter: Optional[str] = None,
                              project_filter: Optional[str] = None,
-                             include_all: bool = False) -> Dict:
+                             include_all: bool = False,
+                             deduplicate: bool = True) -> Dict:
         """
         Get statistics summary
 
@@ -237,6 +300,7 @@ class DataStorage:
             tool_filter: Optional tool name filter (e.g., "aider", "claude-cli")
             project_filter: Optional project path filter (e.g., "/home/user/project1")
             include_all: If True, include all sessions. If False (default), only AI tools.
+            deduplicate: If True (default), merge auto-saves and duplicate session records.
 
         Returns:
             Dictionary containing overall statistics
@@ -250,6 +314,9 @@ class DataStorage:
         # Apply project filter
         if project_filter:
             sessions = [s for s in sessions if s.get("project_path") == project_filter]
+
+        if deduplicate:
+            sessions = self.deduplicate_sessions(sessions)
 
         if not sessions:
             return {
@@ -299,7 +366,8 @@ class DataStorage:
     def get_daily_stats(self, days: int = 7,
                        tool_filter: Optional[str] = None,
                        project_filter: Optional[str] = None,
-                       include_all: bool = False) -> List[Dict]:
+                       include_all: bool = False,
+                       deduplicate: bool = True) -> List[Dict]:
         """
         Get daily aggregated statistics for the past N days
 
@@ -308,6 +376,7 @@ class DataStorage:
             tool_filter: Optional tool name filter
             project_filter: Optional project path filter
             include_all: If True, include all sessions. If False (default), only AI tools.
+            deduplicate: If True (default), merge auto-saves and duplicate session records.
 
         Returns:
             List of daily statistics, one dict per day:
@@ -338,6 +407,9 @@ class DataStorage:
             all_sessions = [s for s in all_sessions if s.get("tool") == tool_filter]
         if project_filter:
             all_sessions = [s for s in all_sessions if s.get("project_path") == project_filter]
+
+        if deduplicate:
+            all_sessions = self.deduplicate_sessions(all_sessions)
 
         # Group sessions by date
         daily_data = {date: [] for date in date_list}

@@ -29,8 +29,8 @@ cd void-tally
 # Install with pip (editable mode for development)
 pip install -e .
 
-# Or install from PyPI (when published)
-pip install voidtally
+# Or install from PyPI 
+  pip install voidtally==0.1.0 -i https://pypi.org/simple
 ```
 
 **Requirements:**
