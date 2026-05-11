@@ -52,6 +52,11 @@ class LatencyTracker:
         # Auto-finalize: if AI output stops for this many seconds, end void time
         self.idle_threshold_seconds: float = 5.0
 
+        # If AI never outputs a first token within this many seconds, abandon the
+        # interaction entirely (don't record void time). Prevents overnight hangs
+        # from inflating void time when the session is left open with a pending Enter.
+        self.first_token_timeout_seconds: float = 300.0
+
         # Use high-precision timer (nanosecond level)
         self.timer = time.perf_counter
 
@@ -93,10 +98,16 @@ class LatencyTracker:
             # No interaction in progress, ignore
             return
 
-        # Use last AI output time as void end point (TTLT).
-        # Fall back to current time if AI never responded.
-        end_time = self.last_output_time if self.last_output_time is not None else self.timer()
-        void_duration = (end_time - self.input_time) * 1000
+        if self.last_output_time is None:
+            # AI never responded to this interaction (no token arrived through the PTY).
+            # Do NOT fall back to current time — that would include sleep/idle time and
+            # produce wildly inflated void measurements. Discard this interaction.
+            self.input_time = None
+            self.is_waiting_for_token = False
+            self.first_token_time = None
+            return
+
+        void_duration = (self.last_output_time - self.input_time) * 1000
         self.void_durations.append(void_duration)
 
         # Record generation duration (first token → last token)
@@ -123,11 +134,20 @@ class LatencyTracker:
             # No interaction in progress
             return
 
+        current_time = self.timer()
+
         if self.last_output_time is None:
-            # AI hasn't output anything yet
+            # AI hasn't output any token yet. If we've been waiting longer than
+            # first_token_timeout_seconds, abandon the interaction without recording
+            # void time. This prevents overnight hangs (session left open after Enter)
+            # from inflating void time.
+            if current_time - self.input_time >= self.first_token_timeout_seconds:
+                self.input_time = None
+                self.is_waiting_for_token = False
+                self.first_token_time = None
+                self.last_output_time = None
             return
 
-        current_time = self.timer()
         idle_duration = current_time - self.last_output_time
 
         if idle_duration >= self.idle_threshold_seconds:

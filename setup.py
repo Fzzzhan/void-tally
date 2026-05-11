@@ -17,6 +17,13 @@ setup(
         "void_tracker",
         "void_storage",
         "void_dashboard",
+        "void_watcher",
+        "void_git",
+        "void_snapshot",
+        "void_char_counter",
+    ],
+    install_requires=[
+        "rich>=10.0.0",
     ],
     entry_points={
         "console_scripts": [
@@ -32,5 +39,6 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
 )

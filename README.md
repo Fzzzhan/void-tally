@@ -5,7 +5,7 @@ A non-intrusive performance observation tool for AI CLI developers. VoidTally qu
 ## Features
 
 - 🎯 **Zero-Impact Monitoring**: PTY proxy with 100% ANSI passthrough
-- ⏱️ **Precise Timing**: TTLT (Time to Last Token) — measures from Enter to last AI output character
+- ⏱️ **Precise Timing**: Measures from Enter (submit) to any key press (ready to continue)
 - 📊 **Rich TUI Dashboard**: Statistics, 7-day trends, and file details
 - 📸 **Snapshot Attribution**: Accurate LOC tracking even without Git
 - 🔍 **Smart Filtering**: Filter by tool and project for targeted analysis
@@ -17,56 +17,49 @@ A non-intrusive performance observation tool for AI CLI developers. VoidTally qu
 ### Installation
 
 ```bash
-# Clone and setup
+# Clone the repository
 git clone https://github.com/Fzzzhan/void-tally.git
 cd void-tally
 
-# Install dependencies (optional, for enhanced dashboard)
-pip install rich>=13.0.0
+# Install with pip (editable mode for development)
+pip install -e .
 
-# Make executable
-chmod +x voidtally.py
+# Or install from PyPI (when published)
+pip install voidtally
 ```
 
 **Requirements:**
-- Python 3.7+ (standard library only for core features)
-- `rich>=13.0.0` (optional, for colorful dashboard)
+- Python 3.7+
+- `rich>=10.0.0` (auto-installed)
 
 ### Basic Usage
 
 ```bash
 # Monitor AI CLI tool
-python3 voidtally.py run aider
-python3 voidtally.py run claude
+voidtally run aider
+voidtally run claude
 
 # GitHub Copilot CLI (gh copilot)
-python3 voidtally.py run gh copilot suggest
-python3 voidtally.py run gh copilot explain
+voidtally run gh copilot suggest
+voidtally run gh copilot explain
 
 # View dashboard
-python3 voidtally.py board
+voidtally board
 
 # Filter by tool
-python3 voidtally.py board --tool aider
-python3 voidtally.py board --tool gh-copilot   # GitHub Copilot sessions
+voidtally board --tool aider
+voidtally board --tool gh-copilot   # GitHub Copilot sessions
 
 # Filter by project
-python3 voidtally.py board --project .
-python3 voidtally.py board --project /path/to/project
+voidtally board --project .
+voidtally board --project /path/to/project
 
 # List tracked tools and projects
-python3 voidtally.py tools
-python3 voidtally.py projects
+voidtally tools
+voidtally projects
 
 # Clear all data (with backup)
-python3 voidtally.py clear
-```
-
-**Optional: Create symlink for easier access**
-```bash
-sudo ln -s $(pwd)/voidtally.py /usr/local/bin/voidtally
-voidtally run aider
-voidtally board
+voidtally clear
 ```
 
 ## Dashboard Features
@@ -86,9 +79,10 @@ All panels support filtering by `--tool` and `--project` for targeted analysis.
 VoidTally uses **PTY (pseudo-terminal) proxy technology** to transparently monitor AI CLI tools:
 
 1. **PTY Proxy**: Creates pseudo-terminal to intercept stdin/stdout without modifying the target CLI
-2. **Void Observer**: Measures **TTLT (Time to Last Token)** — from Enter key to the last AI output character per turn
-3. **Snapshot System**: Takes before/after snapshots of source files to calculate exact LOC changes
-4. **Attribution Methods**:
+2. **Void Observer**: Measures void time from Enter (submit request) to any key press (ready to continue)
+3. **Auto-finalize**: If AI output stops for 5 seconds, void time automatically ends (handles multi-terminal scenarios)
+4. **Snapshot System**: Takes before/after snapshots of source files to calculate exact LOC changes
+5. **Attribution Methods**:
    - **📸 Snapshot** (accurate): Uses file snapshots - works without Git
    - **🔀 Git** (fallback): Uses `git diff` when available
    - **❓ Unknown**: Legacy data without attribution
@@ -115,7 +109,7 @@ VoidTally uses **PTY (pseudo-terminal) proxy technology** to transparently monit
 
 **Dashboard colors not showing:**
 ```bash
-pip install rich>=13.0.0
+pip install rich>=10.0.0
 ```
 
 **No LOC statistics:**
@@ -133,7 +127,6 @@ All sessions stored in `~/.voidtally/data.jsonl`:
   "timestamp": "2026-05-10T14:30:00Z",
   "tool": "aider",
   "void_duration_ms": 1250,
-  "gen_duration_ms": 30000,
   "loc_added": 45,
   "loc_deleted": 12,
   "project_path": "/home/user/project",
@@ -147,7 +140,8 @@ All sessions stored in `~/.voidtally/data.jsonl`:
       "loc_net": 22
     }
   ],
-  "attribution_method": "snapshot"
+  "attribution_method": "snapshot",
+  "session_id": "aider_2026-05-10T14:30:00"
 }
 ```
 
