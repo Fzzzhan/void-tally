@@ -1,41 +1,39 @@
-// Smooth scroll for anchor links
+// Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) {
-            const offset = 80; // Navbar height
-            const targetPosition = target.offsetTop - offset;
-            window.scrollTo({
-                top: targetPosition,
-                behavior: 'smooth'
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
             });
         }
     });
 });
 
-// Navbar background on scroll
-const navbar = document.querySelector('.navbar');
-let lastScroll = 0;
+// Typing animation for terminal prompt
+const typingText = document.querySelector('.typing-text');
+if (typingText) {
+    const text = typingText.textContent;
+    typingText.textContent = '';
+    let i = 0;
 
-window.addEventListener('scroll', () => {
-    const currentScroll = window.pageYOffset;
+    const typeWriter = () => {
+        if (i < text.length) {
+            typingText.textContent += text.charAt(i);
+            i++;
+            setTimeout(typeWriter, 100);
+        }
+    };
 
-    if (currentScroll > 50) {
-        navbar.style.background = 'rgba(255, 255, 255, 0.98)';
-        navbar.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
-    } else {
-        navbar.style.background = 'rgba(255, 255, 255, 0.95)';
-        navbar.style.boxShadow = 'none';
-    }
+    setTimeout(typeWriter, 500);
+}
 
-    lastScroll = currentScroll;
-});
-
-// Add animation on scroll
+// Fade in animations on scroll
 const observerOptions = {
     threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
+    rootMargin: '0px 0px -100px 0px'
 };
 
 const observer = new IntersectionObserver((entries) => {
@@ -47,57 +45,30 @@ const observer = new IntersectionObserver((entries) => {
     });
 }, observerOptions);
 
-// Observe feature cards and workflow steps
-document.querySelectorAll('.feature-card, .workflow-step').forEach(el => {
+// Observe feature cards
+document.querySelectorAll('.feature-card').forEach((el, index) => {
     el.style.opacity = '0';
-    el.style.transform = 'translateY(20px)';
-    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    el.style.transform = 'translateY(30px)';
+    el.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`;
     observer.observe(el);
 });
 
-// Copy code snippets on click
-document.querySelectorAll('.install-steps code, .setup-step code').forEach(code => {
+// Copy code on click
+document.querySelectorAll('.command-list code').forEach(code => {
     code.style.cursor = 'pointer';
     code.title = 'Click to copy';
 
     code.addEventListener('click', () => {
-        const text = code.textContent;
+        const text = code.textContent.replace('<tool>', 'aider');
         navigator.clipboard.writeText(text).then(() => {
-            const originalText = code.textContent;
-            code.textContent = '✓ Copied!';
-            code.style.color = '#10b981';
+            const original = code.textContent;
+            code.textContent = '✓ Copied';
+            code.style.color = 'var(--accent)';
 
             setTimeout(() => {
-                code.textContent = originalText;
+                code.textContent = original;
                 code.style.color = '';
             }, 2000);
-        }).catch(err => {
-            console.error('Failed to copy:', err);
         });
     });
 });
-
-// Terminal typing effect
-const terminalBody = document.querySelector('.terminal-body');
-if (terminalBody) {
-    const originalContent = terminalBody.innerHTML;
-    terminalBody.innerHTML = '';
-
-    let delay = 0;
-    const lines = originalContent.split('</div>');
-
-    lines.forEach((line, index) => {
-        if (line.trim()) {
-            setTimeout(() => {
-                const div = document.createElement('div');
-                div.className = 'terminal-line';
-                div.innerHTML = line + '</div>';
-                terminalBody.appendChild(div);
-
-                // Scroll to bottom
-                terminalBody.parentElement.scrollTop = terminalBody.parentElement.scrollHeight;
-            }, delay);
-            delay += 300;
-        }
-    });
-}

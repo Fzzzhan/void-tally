@@ -3,342 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoidTally - Measure Your Time in The Void</title>
-    <meta name="description" content="VoidTally helps you measure and understand time spent waiting for AI CLI tools. Track efficiency, measure void time, and make data-driven decisions.">
+    <title>VoidTally - Measure Your AI Waiting Time</title>
+    <meta name="description" content="Terminal-based performance tracker for AI CLI tools. Measure waiting time, track code changes, all locally.">
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-content">
-                <div class="logo">
-                    <span class="logo-icon">⏱️</span>
-                    <span class="logo-text">VoidTally</span>
-                </div>
-                <div class="nav-links">
-                    <a href="#features">Features</a>
-                    <a href="#how-it-works">How It Works</a>
-                    <a href="#install">Install</a>
-                    <a href="#email">Email Reports</a>
-                    <a href="https://github.com/Fzzzhan/void-tally" class="btn-github" target="_blank">
-                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                        GitHub
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    <div class="grain"></div>
 
-    <!-- Hero Section -->
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <span class="logo-bracket">[</span>
+                <span class="logo-text">VoidTally</span>
+                <span class="logo-bracket">]</span>
+            </div>
+            <nav>
+                <a href="https://github.com/Fzzzhan/void-tally" target="_blank" class="nav-link">
+                    <span>GitHub</span>
+                    <span class="arrow">→</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero -->
     <section class="hero">
         <div class="container">
             <div class="hero-content">
-                <div class="badge">Non-intrusive AI CLI Performance Tracker</div>
+                <div class="terminal-prompt">
+                    <span class="prompt-symbol">$</span>
+                    <span class="typing-text">voidtally run aider</span>
+                    <span class="cursor">_</span>
+                </div>
+
                 <h1 class="hero-title">
-                    Measure Your Time in<br>
-                    <span class="gradient-text">The Void</span>
+                    Measure Your<br>
+                    <span class="highlight">AI Waiting Time</span>
                 </h1>
+
                 <p class="hero-description">
-                    VoidTally helps you understand how much time you spend waiting for AI CLI tools to respond.
-                    Track efficiency, measure void time, and make data-driven decisions about your workflow with zero impact on your tools.
+                    Track how long you wait for AI CLI tools.<br>
+                    Get data. Make decisions.
                 </p>
-                <div class="hero-buttons">
+
+                <div class="stats-preview">
+                    <div class="stat-item">
+                        <div class="stat-value">23m 45s</div>
+                        <div class="stat-label">void time today</div>
+                    </div>
+                    <div class="stat-divider">|</div>
+                    <div class="stat-item">
+                        <div class="stat-value">+234 -87</div>
+                        <div class="stat-label">loc changed</div>
+                    </div>
+                    <div class="stat-divider">|</div>
+                    <div class="stat-item">
+                        <div class="stat-value">5</div>
+                        <div class="stat-label">sessions</div>
+                    </div>
+                </div>
+
+                <div class="cta-group">
                     <a href="#install" class="btn btn-primary">
                         Get Started
-                        <span class="arrow">→</span>
                     </a>
-                    <a href="https://github.com/Fzzzhan/void-tally" class="btn btn-secondary" target="_blank">
-                        View on GitHub
+                    <a href="https://github.com/Fzzzhan/void-tally" target="_blank" class="btn btn-secondary">
+                        View Source
                     </a>
-                </div>
-                <div class="hero-stats">
-                    <div class="stat">
-                        <div class="stat-value">⏱️ Real-time</div>
-                        <div class="stat-label">Void Time Tracking</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value">📊 7-Day</div>
-                        <div class="stat-label">Trend Analysis</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-value">📧 Daily</div>
-                        <div class="stat-label">Email Reports</div>
-                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section id="features" class="features">
+    <!-- Features -->
+    <section class="features">
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title">Why VoidTally?</h2>
-                <p class="section-description">
-                    Transparent monitoring with powerful insights
-                </p>
+                <h2>What It Does</h2>
             </div>
+
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">🎯</div>
-                    <h3>Zero-Impact Monitoring</h3>
-                    <p>PTY proxy with 100% ANSI passthrough. Your AI tools work exactly as before, with zero performance overhead.</p>
+                    <div class="feature-icon">⏱</div>
+                    <h3>Measure Void Time</h3>
+                    <p>Track waiting time across AI CLI sessions. Get precise measurements without interfering with your workflow.</p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⏱️</div>
-                    <h3>Precise Timing</h3>
-                    <p>Measures void time from Enter (submit request) to any key press (ready to continue) with millisecond precision.</p>
-                </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">📊</div>
-                    <h3>Rich TUI Dashboard</h3>
-                    <p>Beautiful terminal interface showing statistics, 7-day trends, and detailed file-level LOC changes.</p>
+                    <h3>Track Code Changes</h3>
+                    <p>See exactly how much code changed per session. Line-by-line attribution with file-level breakdown.</p>
                 </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">📧</div>
-                    <h3>Email Reports</h3>
-                    <p>Automated daily void time reports with HTML formatting. Get insights delivered to your inbox every evening.</p>
+                    <h3>Daily Reports</h3>
+                    <p>Automated email summaries delivered each evening. HTML-formatted with session details and trends.</p>
                 </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📸</div>
-                    <h3>Snapshot Attribution</h3>
-                    <p>Accurate LOC tracking using file snapshots. Works perfectly even without Git in your project.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h3>Smart Filtering</h3>
-                    <p>Filter by tool and project for targeted analysis. Track multiple AI tools across different projects.</p>
-                </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">🔒</div>
-                    <h3>Privacy First</h3>
-                    <p>All data stored locally in JSONL format. No cloud uploads, no tracking, 100% private.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🚀</div>
-                    <h3>Universal Compatibility</h3>
-                    <p>Works with any AI CLI tool: Aider, Claude, GitHub Copilot, Codex, and more.</p>
+                    <h3>100% Local</h3>
+                    <p>All data stays on your machine. No cloud uploads, no tracking, complete privacy guaranteed.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="how-it-works">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">How It Works</h2>
-                <p class="section-description">
-                    Transparent monitoring using PTY proxy technology
-                </p>
-            </div>
-            <div class="workflow">
-                <div class="workflow-step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h3>PTY Proxy</h3>
-                        <p>Creates a pseudo-terminal to intercept stdin/stdout without modifying your AI CLI tool.</p>
-                    </div>
-                </div>
-                <div class="workflow-arrow">↓</div>
-                <div class="workflow-step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h3>Void Observer</h3>
-                        <p>Measures void time from Enter to any key press. Auto-finalizes after 5 seconds of AI idle time.</p>
-                    </div>
-                </div>
-                <div class="workflow-arrow">↓</div>
-                <div class="workflow-step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h3>Snapshot System</h3>
-                        <p>Takes before/after snapshots of source files to calculate exact LOC changes.</p>
-                    </div>
-                </div>
-                <div class="workflow-arrow">↓</div>
-                <div class="workflow-step">
-                    <div class="step-number">4</div>
-                    <div class="step-content">
-                        <h3>Local Storage</h3>
-                        <p>Saves data locally in JSONL format (~500 bytes per session). Privacy guaranteed.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Installation Section -->
+    <!-- Installation -->
     <section id="install" class="install">
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title">Get Started in 30 Seconds</h2>
-                <p class="section-description">
-                    Simple installation with pip
-                </p>
+                <h2>Get Started</h2>
             </div>
+
             <div class="install-content">
-                <div class="terminal-window">
+                <div class="terminal-box">
                     <div class="terminal-header">
-                        <div class="terminal-button red"></div>
-                        <div class="terminal-button yellow"></div>
-                        <div class="terminal-button green"></div>
+                        <span class="terminal-title">Terminal</span>
                     </div>
                     <div class="terminal-body">
                         <div class="terminal-line">
                             <span class="prompt">$</span>
-                            <span class="command">pip install -e .</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="comment"># Or from PyPI (when published)</span>
+                            <span>pip install voidtally</span>
                         </div>
                         <div class="terminal-line">
                             <span class="prompt">$</span>
-                            <span class="command">pip install voidtally</span>
+                            <span>voidtally run aider</span>
+                        </div>
+                        <div class="terminal-line comment">
+                            <span># Work normally with your AI tool</span>
                         </div>
                         <div class="terminal-line">
-                            <span class="output">✓ Successfully installed voidtally</span>
+                            <span class="prompt">$</span>
+                            <span>voidtally board</span>
+                        </div>
+                        <div class="terminal-output">
+                            <span>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span><br>
+                            <span>  Sessions: 5  |  Void: 23m 45s</span><br>
+                            <span>  LOC: +234/-87  |  Net: +147</span><br>
+                            <span>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
                         </div>
                     </div>
                 </div>
-                <div class="install-steps">
-                    <h3>Quick Start</h3>
-                    <ol>
+
+                <div class="install-info">
+                    <h3>Three Commands</h3>
+                    <ol class="command-list">
                         <li>
-                            <strong>Monitor your AI CLI:</strong>
-                            <code>voidtally run aider</code>
+                            <code>voidtally run &lt;tool&gt;</code>
+                            <span>Start monitoring</span>
                         </li>
                         <li>
-                            <strong>View the dashboard:</strong>
                             <code>voidtally board</code>
+                            <span>View dashboard</span>
                         </li>
                         <li>
-                            <strong>Filter by tool:</strong>
-                            <code>voidtally board --tool aider</code>
-                        </li>
-                        <li>
-                            <strong>Set up email reports:</strong>
                             <code>voidtally config email</code>
+                            <span>Setup reports</span>
                         </li>
                     </ol>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- Email Reports Section -->
-    <section id="email" class="email-reports">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">Daily Email Reports</h2>
-                <p class="section-description">
-                    Get void time insights delivered to your inbox
-                </p>
-            </div>
-            <div class="email-content">
-                <div class="email-info">
-                    <h3>Automated Daily Reports</h3>
-                    <p>
-                        VoidTally can send you beautiful HTML-formatted email reports every evening with your daily void time statistics.
-                    </p>
-                    <div class="email-features">
-                        <div class="email-feature">
-                            <span class="check">✓</span>
-                            <span>Total void time with visual breakdowns</span>
-                        </div>
-                        <div class="email-feature">
-                            <span class="check">✓</span>
-                            <span>Session-by-session details</span>
-                        </div>
-                        <div class="email-feature">
-                            <span class="check">✓</span>
-                            <span>LOC changes (added/deleted/net)</span>
-                        </div>
-                        <div class="email-feature">
-                            <span class="check">✓</span>
-                            <span>Cross-platform scheduling support</span>
+                    <div class="supported-tools">
+                        <h4>Works with</h4>
+                        <div class="tools-list">
+                            <span class="tool-tag">aider</span>
+                            <span class="tool-tag">claude</span>
+                            <span class="tool-tag">copilot</span>
+                            <span class="tool-tag">any CLI tool</span>
                         </div>
                     </div>
-                    <div class="email-setup">
-                        <h4>Setup in 3 steps:</h4>
-                        <div class="setup-steps">
-                            <div class="setup-step">
-                                <span class="step-badge">1</span>
-                                <code>voidtally config email</code>
-                            </div>
-                            <div class="setup-step">
-                                <span class="step-badge">2</span>
-                                <code>voidtally send-report</code>
-                            </div>
-                            <div class="setup-step">
-                                <span class="step-badge">3</span>
-                                <code>voidtally schedule</code>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="email-preview">
-                    <div class="email-mock">
-                        <div class="email-header-mock">
-                            📊 VoidTally Daily Report
-                            <span class="email-date">2026-05-11</span>
-                        </div>
-                        <div class="email-stats-mock">
-                            <div class="stat-mock">
-                                <div class="stat-label-mock">Void Time</div>
-                                <div class="stat-value-mock">23m 45s</div>
-                            </div>
-                            <div class="stat-mock">
-                                <div class="stat-label-mock">Sessions</div>
-                                <div class="stat-value-mock">5</div>
-                            </div>
-                            <div class="stat-mock">
-                                <div class="stat-label-mock">LOC Added</div>
-                                <div class="stat-value-mock">+234</div>
-                            </div>
-                            <div class="stat-mock">
-                                <div class="stat-label-mock">LOC Deleted</div>
-                                <div class="stat-value-mock">-87</div>
-                            </div>
-                        </div>
-                        <div class="email-sessions-mock">
-                            <div class="session-mock">
-                                <strong>aider</strong><br>
-                                ⏱️ 8m 32s | 📝 +120/-45 LOC
-                            </div>
-                            <div class="session-mock">
-                                <strong>claude-cli</strong><br>
-                                ⏱️ 5m 18s | 📝 +67/-23 LOC
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="cta">
-        <div class="container">
-            <div class="cta-content">
-                <h2>Ready to Understand Your Void Time?</h2>
-                <p>Start measuring your AI CLI efficiency today</p>
-                <div class="cta-buttons">
-                    <a href="https://github.com/Fzzzhan/void-tally" class="btn btn-primary btn-large" target="_blank">
-                        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                        Get Started on GitHub
-                    </a>
-                    <a href="https://github.com/Fzzzhan/void-tally/issues" class="btn btn-secondary btn-large" target="_blank">
-                        Report an Issue
-                    </a>
                 </div>
             </div>
         </div>
@@ -349,29 +187,21 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-left">
-                    <div class="footer-logo">
-                        <span class="logo-icon">⏱️</span>
+                    <div class="logo">
+                        <span class="logo-bracket">[</span>
                         <span class="logo-text">VoidTally</span>
+                        <span class="logo-bracket">]</span>
                     </div>
-                    <p>Measure your time in The Void.</p>
+                    <p>Measure your AI waiting time.</p>
                 </div>
                 <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Resources</h4>
-                        <a href="https://github.com/Fzzzhan/void-tally" target="_blank">GitHub</a>
-                        <a href="https://github.com/Fzzzhan/void-tally/blob/main/README.md" target="_blank">Documentation</a>
-                        <a href="https://github.com/Fzzzhan/void-tally/blob/main/EMAIL_NOTIFICATION.md" target="_blank">Email Setup Guide</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Community</h4>
-                        <a href="https://github.com/Fzzzhan/void-tally/issues" target="_blank">Issues</a>
-                        <a href="https://github.com/Fzzzhan/void-tally/discussions" target="_blank">Discussions</a>
-                        <a href="https://github.com/Fzzzhan/void-tally/pulls" target="_blank">Pull Requests</a>
-                    </div>
+                    <a href="https://github.com/Fzzzhan/void-tally" target="_blank">GitHub</a>
+                    <a href="https://github.com/Fzzzhan/void-tally/blob/main/README.md" target="_blank">Docs</a>
+                    <a href="https://github.com/Fzzzhan/void-tally/issues" target="_blank">Issues</a>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>MIT License © 2026 VoidTally</p>
+                <p>MIT License · 2026</p>
             </div>
         </div>
     </footer>
