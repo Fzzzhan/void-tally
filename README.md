@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="VoidTally logo" width="220">
+</p>
+
 # VoidTally
 
 A non-intrusive performance observation tool for AI CLI developers. VoidTally quantifies "The Void" - the time wasted waiting between user input and AI response.
