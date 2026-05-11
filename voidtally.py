@@ -53,8 +53,50 @@ def main():
         # Parse only the board command args (skip 'voidtally board')
         board_args = parser.parse_args(sys.argv[2:])
 
+        # Normalize project path to absolute path for consistent matching
+        project_filter = board_args.project
+        if project_filter:
+            project_filter = os.path.abspath(project_filter)
+
+        # Phase 6: Trigger manual save in running sessions
+        from pathlib import Path
+        import signal
+        import time
+
+        voidtally_dir = Path.home() / ".voidtally"
+        if voidtally_dir.exists():
+            # Find all PID files
+            pid_files = list(voidtally_dir.glob("run_*.pid"))
+            triggered = 0
+
+            for pid_file in pid_files:
+                try:
+                    content = pid_file.read_text().strip().split('\n')
+                    pid = int(content[0])
+
+                    # Check if process is still running
+                    try:
+                        os.kill(pid, 0)  # Signal 0 just checks if process exists
+                        # Process exists, send SIGUSR1 to trigger save
+                        os.kill(pid, signal.SIGUSR1)
+                        triggered += 1
+                    except ProcessLookupError:
+                        # Process no longer exists, clean up PID file
+                        pid_file.unlink()
+                except (ValueError, IndexError, FileNotFoundError):
+                    pass
+
+            if triggered > 0:
+                print(f"💾 Triggered manual save in {triggered} running session(s)...", file=sys.stderr)
+                time.sleep(3)  # Give processes time to save (file-diff + git can take 1-3s)
+            else:
+                if pid_files:
+                    pass  # stale PID files were cleaned up
+                # No running observer — board will show last persisted data
+                print("ℹ️  No active voidtally sessions found; showing last saved data.", file=sys.stderr)
+
         from void_dashboard import VoidDashboard
-        dashboard = VoidDashboard(tool_filter=board_args.tool, project_filter=board_args.project)
+        dashboard = VoidDashboard(tool_filter=board_args.tool, project_filter=project_filter)
         sys.exit(dashboard.run())
 
     elif command == "tools":

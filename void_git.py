@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Git 分析器 - Git Analyzer
-统计代码变更的 LOC（Lines of Code）
+Git Analyzer
+Tracks LOC (Lines of Code) changes via git diff
 """
 
 import os
@@ -14,11 +14,11 @@ from dataclasses import dataclass
 
 @dataclass
 class FileChange:
-    """单个文件的变更统计"""
+    """Per-file change statistics"""
     path: str
     loc_added: int
     loc_deleted: int
-    loc_net: int  # 净变更（added - deleted）
+    loc_net: int  # Net change (added - deleted)
 
 
 @dataclass
@@ -33,23 +33,23 @@ class GitStats:
 
 class GitAnalyzer:
     """
-    Git 代码变更分析器
+    Git code change analyzer
 
-    基于 git diff 统计代码行数变更
+    Calculates LOC changes based on git diff
     """
 
     def __init__(self, repo_path: Optional[str] = None):
         """
-        Initialize Git 分析器
+        Initialize the Git analyzer
 
         Args:
-            repo_path: Git 仓库路径，默认为当前工作目录
+            repo_path: Git repository path, defaults to current working directory
         """
         self.repo_path = Path(repo_path or os.getcwd())
         self._is_git_repo = self._check_git_repo()
 
     def _check_git_repo(self) -> bool:
-        """Check是否为 Git 仓库"""
+        """Return True if the path is a git repository"""
         try:
             result = subprocess.run(
                 ['git', 'rev-parse', '--git-dir'],
@@ -63,24 +63,24 @@ class GitAnalyzer:
             return False
 
     def is_git_repository(self) -> bool:
-        """Check当前目录是否为 Git 仓库"""
+        """Return True if the current directory is a git repository"""
         return self._is_git_repo
 
     def get_file_diff_stats(self, filepath: str) -> Optional[FileChange]:
         """
-        Get单个文件的 Git Diff 统计
+        Get Git diff statistics for a single file
 
         Args:
-            filepath: File path（相对于仓库根目录）
+            filepath: File path (relative to the repository root)
 
         Returns:
-            FileChange 对象，If无法Get则Return None
+            FileChange object, or None if stats cannot be retrieved
         """
         if not self._is_git_repo:
             return None
 
         try:
-            # Use git diff --numstat HEAD -- <file> Get统计
+            # Use git diff --numstat HEAD -- <file> to get line change stats
             result = subprocess.run(
                 ['git', 'diff', '--numstat', 'HEAD', '--', filepath],
                 cwd=self.repo_path,
@@ -94,7 +94,7 @@ class GitAnalyzer:
 
             output = result.stdout.strip()
             if not output:
-                # 文件未被追踪或无变更
+                # File is untracked or has no changes
                 return FileChange(
                     path=filepath,
                     loc_added=0,
@@ -102,12 +102,12 @@ class GitAnalyzer:
                     loc_net=0
                 )
 
-            # 解析 numstat 输出：added\tdeleted\tfilename
+            # Parse numstat output: added\tdeleted\tfilename
             parts = output.split('\t')
             if len(parts) >= 2:
                 added_str, deleted_str = parts[0], parts[1]
 
-                # Handle二进制文件（显示为 '-'）
+                # Handle binary files (shown as '-')
                 if added_str == '-' or deleted_str == '-':
                     return FileChange(
                         path=filepath,
@@ -133,13 +133,13 @@ class GitAnalyzer:
 
     def get_files_diff_stats(self, filepaths: List[str]) -> GitStats:
         """
-        批量Get多个文件的 Git Diff 统计
+        Get Git diff statistics for multiple files
 
         Args:
-            filepaths: File path列表
+            filepaths: List of file paths
 
         Returns:
-            GitStats 对象
+            GitStats object
         """
         file_changes = []
         total_added = 0
@@ -162,10 +162,10 @@ class GitAnalyzer:
 
     def get_shortstat(self) -> Optional[Tuple[int, int, int]]:
         """
-        Get git diff --shortstat 的统计
+        Get statistics from git diff --shortstat
 
         Returns:
-            (files_changed, insertions, deletions) 或 None
+            (files_changed, insertions, deletions) or None
         """
         if not self._is_git_repo:
             return None
@@ -186,7 +186,7 @@ class GitAnalyzer:
             if not output:
                 return (0, 0, 0)
 
-            # 解析输出：1 file changed, 2 insertions(+), 3 deletions(-)
+            # Parse output: "1 file changed, 2 insertions(+), 3 deletions(-)"
             files_match = re.search(r'(\d+) files? changed', output)
             insertions_match = re.search(r'(\d+) insertions?\(\+\)', output)
             deletions_match = re.search(r'(\d+) deletions?\(-\)', output)
@@ -202,23 +202,23 @@ class GitAnalyzer:
 
     def stage_and_commit(self, message: str, files: Optional[List[str]] = None):
         """
-        暂存并提交文件（Test辅助方法）
+        Stage and commit files (test helper method)
 
         Args:
-            message: 提交消息
-            files: 要提交的文件列表，None 表示所有变更
+            message: Commit message
+            files: List of files to commit; None means all changes
         """
         if not self._is_git_repo:
             raise RuntimeError("Not a git repository")
 
         try:
-            # 暂存文件
+            # Stage files
             if files:
                 subprocess.run(['git', 'add'] + files, cwd=self.repo_path, check=True)
             else:
                 subprocess.run(['git', 'add', '-A'], cwd=self.repo_path, check=True)
 
-            # 提交
+            # Commit
             subprocess.run(
                 ['git', 'commit', '-m', message],
                 cwd=self.repo_path,
@@ -236,17 +236,17 @@ if __name__ == "__main__":
 
     print("Testing GitAnalyzer...")
 
-    # Create临时 Git 仓库
+    # Create temporary git repository
     test_dir = tempfile.mkdtemp(prefix="voidtally_git_")
     print(f"Test directory: {test_dir}")
 
     try:
-        # Initialize Git 仓库
+        # Initialize git repository
         subprocess.run(['git', 'init'], cwd=test_dir, check=True, capture_output=True)
         subprocess.run(['git', 'config', 'user.email', 'test@example.com'], cwd=test_dir, check=True)
         subprocess.run(['git', 'config', 'user.name', 'Test User'], cwd=test_dir, check=True)
 
-        # Create初始文件并提交
+        # Create initial file and commit
         (Path(test_dir) / "README.md").write_text("# Test Project\n")
         subprocess.run(['git', 'add', 'README.md'], cwd=test_dir, check=True)
         subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=test_dir, check=True, capture_output=True)
@@ -256,17 +256,17 @@ if __name__ == "__main__":
         assert analyzer.is_git_repository(), "Should be a git repository"
         print("✓ Git repository detected")
 
-        # 修改文件（未提交）
+        # Modify file (uncommitted)
         (Path(test_dir) / "README.md").write_text("# Test Project\n\nNew content\nMore lines\n")
         (Path(test_dir) / "new_file.py").write_text("def hello():\n    print('world')\n")
 
-        # Test单文件统计
+        # Test single-file stats
         readme_stats = analyzer.get_file_diff_stats("README.md")
         assert readme_stats is not None
-        assert readme_stats.loc_added >= 2  # 至少增加了 2 行
+        assert readme_stats.loc_added >= 2  # at least 2 lines added
         print(f"✓ README.md: +{readme_stats.loc_added} -{readme_stats.loc_deleted}")
 
-        # Test多文件统计
+        # Test multi-file stats
         stats = analyzer.get_files_diff_stats(["README.md", "new_file.py"])
         assert stats.total_loc_added > 0
         assert len(stats.file_changes) == 2

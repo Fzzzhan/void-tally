@@ -49,6 +49,11 @@ Thumbs.db
 .coverage
 .pytest_cache/
 htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
 
 # Binaries
 voidtally
@@ -56,9 +61,6 @@ void_tally
 *.exe
 *.dll
 *.dylib
-
-# Test files
-test_*.py
 
 # Documentation (except README.md)
 CLAUDE.md

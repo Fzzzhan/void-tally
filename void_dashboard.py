@@ -6,7 +6,7 @@ Phase 4: Rich TUI Implementation
 
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 from void_storage import DataStorage
@@ -26,9 +26,6 @@ except ImportError:
 class VoidDashboard:
     """TUI Dashboard - Phase 4 Complete Implementation"""
 
-    # ROI Calculate常量（来自 PRD line 98）
-    HUMAN_CODING_CONSTANT = 1.0  # Human coding rate: 1 LOC = 1 minute (conservative estimate)
-
     def __init__(self, tool_filter: str = None, project_filter: str = None):
         self.storage = DataStorage()
         self.console = Console() if RICH_AVAILABLE else None
@@ -36,7 +33,7 @@ class VoidDashboard:
         self.project_filter = project_filter
 
     def run(self) -> int:
-        """Run看板显示"""
+        """Run the dashboard display"""
         if not RICH_AVAILABLE:
             return self._run_text_mode()
 
@@ -51,7 +48,14 @@ class VoidDashboard:
         print()
 
         summary = self.storage.get_statistics_summary(self.tool_filter, self.project_filter)
-        today_sessions = self.storage.load_sessions_by_date(datetime.now())
+        today_sessions = self.storage.load_sessions_by_date(datetime.now(timezone.utc))
+
+        # Apply filters to session list (consistent with summary)
+        if self.tool_filter or self.project_filter:
+            if self.tool_filter:
+                today_sessions = [s for s in today_sessions if s.get("tool") == self.tool_filter]
+            if self.project_filter:
+                today_sessions = [s for s in today_sessions if s.get("project_path") == self.project_filter]
 
         print("📊 Overall Statistics")
         print("-" * 60)
@@ -59,11 +63,6 @@ class VoidDashboard:
         print(f"  Total Void Time: {self._format_duration(summary['total_void_time_ms'])}")
         print(f"  Total LOC Added: {summary['total_loc_added']}")
         print(f"  Total LOC Deleted: {summary['total_loc_deleted']}")
-
-        if summary['total_sessions'] > 0:
-            roi = self._calculate_roi(summary)
-            print(f"  ROI: {roi:.2f}%")
-
         print()
         print(f"📅 Today ({datetime.now().strftime('%Y-%m-%d')})")
         print("-" * 60)
@@ -73,39 +72,51 @@ class VoidDashboard:
 
     def _run_rich_mode(self):
         """Rich TUI mode"""
-        # Load数据
-        summary = self.storage.get_statistics_summary(self.tool_filter, self.project_filter)
+        # Load data
         all_sessions = self.storage.load_all_sessions()
-        today_sessions = self.storage.load_sessions_by_date(datetime.now())
+        today_sessions = self.storage.load_sessions_by_date(datetime.now(timezone.utc))
 
-        # Create主布局
-        layout = Layout()
+        # Apply filters to session list (consistent with summary)
+        if self.tool_filter or self.project_filter:
+            if self.tool_filter:
+                all_sessions = [s for s in all_sessions if s.get("tool") == self.tool_filter]
+                today_sessions = [s for s in today_sessions if s.get("tool") == self.tool_filter]
+            if self.project_filter:
+                all_sessions = [s for s in all_sessions if s.get("project_path") == self.project_filter]
+                today_sessions = [s for s in today_sessions if s.get("project_path") == self.project_filter]
 
-        # Layout structure:
-        # ┌─────────────────────────────────────────┐
-        # │              Header                      │
-        # ├─────────────────────────────────────────┤
-        # │              Stats Cards                 │
-        # ├─────────────────────────────────────────┤
-        # │         Today's Activity                 │
-        # ├─────────────────────────────────────────┤
-        # │         Recent Sessions                  │
-        # ├─────────────────────────────────────────┤
-        # │         File Details                     │
-        # ├─────────────────────────────────────────┤
-        # │          ROI Analysis                    │
-        # └─────────────────────────────────────────┘
+        # Deduplicate sessions FIRST: keep only the latest record for each unique session
+        unique_all_sessions = self._deduplicate_sessions(all_sessions)
+        unique_today_sessions = self._deduplicate_sessions(today_sessions)
 
-        layout.split(
-            Layout(name="header", size=3),
-            Layout(name="stats", size=7),
-            Layout(name="today", size=10),
-            Layout(name="sessions", size=12),
-            Layout(name="files", size=10),
-            Layout(name="roi", size=12),
-        )
+        # Recalculate statistics based on unique sessions
+        summary = self._calculate_summary(unique_all_sessions)
+        daily_stats = self._calculate_daily_stats(unique_all_sessions, days=7)
 
-        # 1. Header
+        # Create all panels first
+        recent_sessions = unique_all_sessions[-10:] if unique_all_sessions else []
+
+        panels = [
+            ("header", self._create_header_panel()),
+            ("stats", self._create_stats_panel(summary)),
+            ("trend", self._create_trend_panel(daily_stats)),
+            ("today", self._create_today_panel(unique_today_sessions)),
+            ("sessions", self._create_sessions_table(recent_sessions)),
+            ("files", self._create_file_details_panel(recent_sessions)),
+        ]
+
+        # Display panels one by one (no fixed layout to avoid terminal size issues)
+        for name, panel in panels:
+            self.console.print(panel)
+
+        # Show data file location
+        self.console.print()
+        self.console.print(f"[dim]Data file: {self.storage.data_file}[/dim]")
+
+        return 0
+
+    def _create_header_panel(self) -> Panel:
+        """Create header panel"""
         header_text = "VoidTally Dashboard"
         filters = []
         if self.tool_filter:
@@ -118,60 +129,33 @@ class VoidDashboard:
         if filters:
             header_text = f"VoidTally Dashboard [{', '.join(filters)}]"
 
-        layout["header"].update(
-            Panel(
-                Text(header_text, style="bold cyan", justify="center"),
-                style="cyan",
-                box=box.HEAVY
-            )
+        return Panel(
+            Text(header_text, style="bold cyan", justify="center"),
+            style="cyan",
+            box=box.HEAVY
         )
 
-        # 2. Stats Cards
-        layout["stats"].update(self._create_stats_panel(summary))
-
-        # 3. Today's Activity
-        layout["today"].update(self._create_today_panel(today_sessions))
-
-        # 4. Recent Sessions
-        recent_sessions = all_sessions[-10:] if all_sessions else []
-        layout["sessions"].update(self._create_sessions_table(recent_sessions))
-
-        # 5. File Details (Latest Session)
-        layout["files"].update(self._create_file_details_panel(recent_sessions))
-
-        # 6. ROI Analysis
-        layout["roi"].update(self._create_roi_panel(summary))
-
-        # 显示
-        self.console.print(layout)
-
-        # 显示数据文件位置
-        self.console.print()
-        self.console.print(f"[dim]Data file: {self.storage.data_file}[/dim]")
-
-        return 0
-
     def _create_stats_panel(self, summary: Dict) -> Panel:
-        """Create统计卡片面板"""
+        """Create the statistics cards panel"""
         total_void_ms = summary['total_void_time_ms']
         net_loc = summary['total_loc_added'] - summary['total_loc_deleted']
-        total_loc_changed = summary['total_loc_added'] + summary['total_loc_deleted']  # 总变更量（增删都是正向工作）
+        total_loc_changed = summary['total_loc_added'] + summary['total_loc_deleted']  # total changes (additions and deletions both represent productive work)
         sessions = summary['total_sessions']
 
-        # Calculate效率增益（Use总变更量，因为Delete代码也是有价值的工作）
+        # Calculate efficiency (use total changes; deleting code is also valuable work)
         if total_void_ms > 0 and total_loc_changed > 0:
             # Efficiency = (total changes / wait time) * normalization factor
-            efficiency = (total_loc_changed / (total_void_ms / 60000)) * 10  # 归一化为易读数值
+            efficiency = (total_loc_changed / (total_void_ms / 60000)) * 10  # normalize to a human-readable value
         else:
             efficiency = 0
 
-        # Create三列统计卡片
+        # Build three-column stats cards
         grid = Table.grid(expand=True)
         grid.add_column(ratio=1)
         grid.add_column(ratio=1)
         grid.add_column(ratio=1)
 
-        # 卡片 1: Total Void
+        # Card 1: Total Void
         void_text = Text()
         void_text.append(f"{self._format_duration(total_void_ms)}\n", style="bold yellow")
         void_text.append(f"{sessions} sessions", style="dim")
@@ -182,9 +166,9 @@ class VoidDashboard:
             padding=(1, 2)
         )
 
-        # 卡片 2: Total LOC Changed（总变更量，增删都是正向工作）
+        # Card 2: Total LOC Changed (additions + deletions)
         loc_text = Text()
-        loc_style = "green"  # 总是绿色，因为增删都是正向工作
+        loc_style = "green"  # always green: both additions and deletions are productive work
         loc_text.append(f"{total_loc_changed:,}\n", style=f"bold {loc_style}")
         loc_text.append(
             f"+{summary['total_loc_added']:,} -{summary['total_loc_deleted']:,}",
@@ -197,7 +181,7 @@ class VoidDashboard:
             padding=(1, 2)
         )
 
-        # 卡片 3: Efficiency
+        # Card 3: Efficiency
         eff_text = Text()
         eff_text.append(f"{efficiency:.1f}\n", style="bold cyan")
         eff_text.append("LOC/min·void", style="dim")
@@ -212,8 +196,56 @@ class VoidDashboard:
 
         return Panel(grid, title="📊 Overall Statistics", border_style="blue")
 
+    def _create_trend_panel(self, daily_stats: List[Dict]) -> Panel:
+        """Create 7-day void time trend panel with ASCII bar chart"""
+        if not daily_stats or all(day["total_void_ms"] == 0 for day in daily_stats):
+            content = Text("No data available for trend analysis.", style="dim italic")
+            return Panel(
+                content,
+                title="[cyan]📈 7-Day Void Time Trend[/cyan]",
+                border_style="cyan"
+            )
+
+        # Find max value for scaling
+        max_void_ms = max(day["total_void_ms"] for day in daily_stats)
+
+        # Create ASCII bar chart
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("Date", style="dim", width=10)
+        table.add_column("Bar", width=40)
+        table.add_column("Value", justify="right", style="cyan", width=10)
+
+        for day in daily_stats:
+            date_str = day["date"][5:]  # Show MM-DD only
+            void_ms = day["total_void_ms"]
+            sessions = day["sessions"]
+
+            # Calculate bar width (max 30 characters)
+            if max_void_ms > 0:
+                bar_width = int((void_ms / max_void_ms) * 30)
+            else:
+                bar_width = 0
+
+            # Create bar
+            if sessions == 0:
+                bar = Text("·" * 30, style="dim")
+                value_str = "-"
+            else:
+                bar = Text("█" * bar_width, style="yellow")
+                if bar_width < 30:
+                    bar.append("·" * (30 - bar_width), style="dim")
+                value_str = self._format_duration(void_ms)
+
+            table.add_row(date_str, bar, value_str)
+
+        return Panel(
+            table,
+            title="[cyan]📈 7-Day Void Time Trend[/cyan]",
+            border_style="cyan"
+        )
+
     def _create_today_panel(self, today_sessions: List[Dict]) -> Panel:
-        """Create今日活动面板"""
+        """Create today's activity panel"""
         today_str = datetime.now().strftime('%Y-%m-%d')
 
         if not today_sessions:
@@ -224,27 +256,25 @@ class VoidDashboard:
                 border_style="green"
             )
 
-        # 统计今日数据
+        # Aggregate today's data
         today_void = sum(s.get("void_duration_ms", 0) for s in today_sessions)
-        today_gen = sum(s.get("gen_duration_ms", 0) for s in today_sessions)
         today_loc_added = sum(s.get("loc_added", 0) for s in today_sessions)
         today_loc_deleted = sum(s.get("loc_deleted", 0) for s in today_sessions)
         today_files = sum(s.get("files_changed_count", 0) for s in today_sessions)
 
-        # Phase 5: 统计归因方法
+        # Phase 5: Count attribution methods
         attribution_counts = {}
         for s in today_sessions:
             method = s.get("attribution_method", "unknown")
             attribution_counts[method] = attribution_counts.get(method, 0) + 1
 
-        # Create表格
+        # Build table
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="bold")
 
         table.add_row("Sessions", str(len(today_sessions)))
         table.add_row("Void Time", self._format_duration(today_void))
-        table.add_row("Gen Time", self._format_duration(today_gen))
         table.add_row(
             "LOC",
             f"[green]+{today_loc_added}[/green] [red]-{today_loc_deleted}[/red] "
@@ -252,7 +282,7 @@ class VoidDashboard:
         )
         table.add_row("Files Changed", str(today_files))
 
-        # Phase 5: Show attribution method统计
+        # Phase 5: Show attribution method breakdown
         if attribution_counts:
             attribution_str = " ".join([
                 f"📸{attribution_counts.get('snapshot', 0)}" if attribution_counts.get('snapshot', 0) > 0 else "",
@@ -269,7 +299,7 @@ class VoidDashboard:
         )
 
     def _create_sessions_table(self, recent_sessions: List[Dict]) -> Panel:
-        """Create最近会话表格"""
+        """Create the recent sessions table"""
         if not recent_sessions:
             content = Text("No sessions recorded yet.", style="dim italic")
             return Panel(
@@ -282,26 +312,29 @@ class VoidDashboard:
             show_header=True,
             header_style="bold magenta",
             box=box.SIMPLE,
-            padding=(0, 1)
+            padding=(0, 1),
+            expand=False
         )
 
-        table.add_column("Time", style="dim", width=16)
-        table.add_column("Tool", style="cyan", width=12)
-        table.add_column("Void", justify="right", width=8)
-        table.add_column("LOC", justify="right", width=15)
-        table.add_column("Attr", justify="center", width=4)  # Phase 5: Attribution method
-        table.add_column("Files", style="yellow")
+        table.add_column("Time", style="dim", width=11)
+        table.add_column("Tool", style="cyan", width=10)
+        table.add_column("Void", justify="right", width=7)
+        table.add_column("LOC", justify="right", width=12)
+        table.add_column("Attr", justify="center", width=4)
+        table.add_column("Files", style="yellow", width=28, no_wrap=True, overflow="ellipsis")
 
-        # 添加最近的会话（倒序）
+        # Add recent sessions in reverse chronological order
         for session in reversed(recent_sessions):
             timestamp = session.get("timestamp", "")
-            # 格式化时间戳为本地时间
+            # Format timestamp as local time
             if timestamp:
                 try:
-                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                    time_str = dt.strftime("%Y-%m-%d %H:%M")
+                    # Parse UTC timestamp and convert to local timezone
+                    dt_utc = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    dt_local = dt_utc.astimezone()  # Convert to local timezone
+                    time_str = dt_local.strftime("%m-%d %H:%M")  # Compact: MM-DD HH:MM
                 except:
-                    time_str = timestamp[:16]
+                    time_str = timestamp[:11]
             else:
                 time_str = "N/A"
 
@@ -315,34 +348,36 @@ class VoidDashboard:
             file_changes = session.get("file_changes", [])
             changed_files = session.get("changed_files", [])
 
-            # 格式化文件列表显示
+            # Format file list for display
             if file_changes:
-                # 优先Use详细的 file_changes（包含 LOC 信息）
+                # Prefer detailed file_changes (includes LOC info)
                 file_names = [fc.get("path", "") for fc in file_changes if fc.get("path")]
             elif changed_files:
-                # 降级Use简单的 changed_files 列表
+                # Fall back to simple changed_files list
                 file_names = changed_files
             else:
                 file_names = []
 
-            # 限制显示文件数量，避免表格过宽
+            # Limit displayed file count to avoid overly wide tables
             if len(file_names) == 0:
                 files_str = f"[dim]{files_count} file(s)[/dim]"
             elif len(file_names) <= 2:
-                # 1-2 个文件：直接显示完整路径（只显示文件名）
+                # 1-2 files: show filename only
                 short_names = [Path(f).name for f in file_names]
                 files_str = ", ".join(short_names)
             else:
-                # 3+ 个文件：显示前2个 + 数量
+                # 3+ files: show first 2 filenames + remaining count
                 short_names = [Path(f).name for f in file_names[:2]]
                 remaining = len(file_names) - 2
                 files_str = f"{', '.join(short_names)} +{remaining}"
 
-            total_changed = loc_added + loc_deleted  # 总变更量（增删都是正向工作）
-            loc_style = "green"  # 总是绿色
-            loc_str = f"[{loc_style}]{total_changed}[/{loc_style}] (+{loc_added}/-{loc_deleted})"
+            # Compact LOC display
+            if loc_added > 0 or loc_deleted > 0:
+                loc_str = f"+{loc_added}/-{loc_deleted}"
+            else:
+                loc_str = "0"
 
-            # Phase 5: Get归因方法图标
+            # Phase 5: Get attribution method icon
             attribution_method = session.get("attribution_method", "unknown")
             attribution_icon = {
                 "snapshot": "📸",
@@ -365,106 +400,162 @@ class VoidDashboard:
             border_style="magenta"
         )
 
-    def _create_roi_panel(self, summary: Dict) -> Panel:
-        """Create ROI 分析面板"""
-        roi = self._calculate_roi(summary)
-
-        if summary['total_sessions'] == 0:
-            content = Text("No data available for ROI calculation.", style="dim italic")
-            return Panel(
-                content,
-                title="[yellow]💰 ROI Analysis[/yellow]",
-                border_style="yellow"
-            )
-
-        # ROI Calculate详情
-        total_void_min = summary['total_void_time_ms'] / 60000
-        total_loc_changed = summary['total_loc_added'] + summary['total_loc_deleted']  # 总变更量
-        net_loc = summary['total_loc_added'] - summary['total_loc_deleted']  # Net changes（仅用于显示）
-        ai_output = total_loc_changed * self.HUMAN_CODING_CONSTANT  # AI 产出等价时间（Use总变更量）
-
-        # Create分析表格
-        table = Table(show_header=False, box=None, padding=(0, 2))
-        table.add_column("Item", style="cyan", width=30)
-        table.add_column("Value", style="bold")
-
-        table.add_row("Total Void Time", f"{total_void_min:.2f} min")
-        table.add_row("Total LOC Changed", f"{total_loc_changed:,} (+{summary['total_loc_added']:,} -{summary['total_loc_deleted']:,})")
-        table.add_row("Human Coding Constant", f"{self.HUMAN_CODING_CONSTANT} min/LOC")
-        table.add_row("AI Equivalent Output", f"{ai_output:.2f} min")
-
-        table.add_row("", "")  # 空行
-
-        # ROI Calculate公式
-        formula_text = Text()
-        formula_text.append("ROI = ", style="dim")
-        formula_text.append(f"(AI Output - Void) / Void", style="yellow")
-        table.add_row("Formula", formula_text)
-
-        # Calculate结果
-        roi_text = Text()
-        roi_style = "green bold" if roi > 0 else "red bold"
-        roi_text.append(f"{roi:.2f}%", style=roi_style)
-
-        if roi > 0:
-            roi_text.append(f"\n+{roi:.0f}% efficiency gain! 🚀", style="green dim")
-        elif roi == 0:
-            roi_text.append("\nBreak-even point", style="yellow dim")
-        else:
-            roi_text.append(f"\n{roi:.0f}% efficiency loss", style="red dim")
-
-        table.add_row("Result", roi_text)
-
-        # 解释
-        table.add_row("", "")
-        interpretation = Text()
-        if roi > 100:
-            interpretation.append("Excellent! AI saves significant time.", style="green")
-        elif roi > 0:
-            interpretation.append("Positive ROI. AI is helpful.", style="green")
-        elif roi == 0:
-            interpretation.append("Neutral. Consider optimization.", style="yellow")
-        else:
-            interpretation.append("Negative ROI. Review workflow.", style="red")
-
-        table.add_row("Interpretation", interpretation)
-
-        return Panel(
-            table,
-            title="[yellow]💰 ROI Analysis[/yellow]",
-            border_style="yellow"
-        )
-
-    def _calculate_roi(self, summary: Dict) -> float:
+    def _deduplicate_sessions(self, sessions: List[Dict]) -> List[Dict]:
         """
-        Calculate ROI (Return on Investment)
+        Deduplicate sessions by keeping only the latest record for each unique session.
 
-        ROI = (AI Total Output × Human Coding Constant - Cumulative Wait Time) / Cumulative Wait Time × 100%
+        Strategy:
+        1. Records with a 'session_id' field: group by session_id, keep the latest
+           (highest void_duration_ms = most complete auto-save or final save).
+        2. Legacy records without 'session_id': group by (tool, project_path) and
+           use a 5-minute time window to merge adjacent records from the same session.
 
-        注意：增加和Delete代码都是正向收益（重构、优化、清理也是有价值的工作）
+        This correctly handles the case where two consecutive copilot sessions
+        start within 5 minutes of each other — the old time-window approach would
+        erroneously merge them and discard the first session's accumulated void time.
 
         Args:
-            summary: 统计摘要数据
+            sessions: List of all sessions
 
         Returns:
-            ROI 百分比
+            List of unique sessions (latest/most-complete record for each)
         """
-        total_void_min = summary['total_void_time_ms'] / 60000
-        total_loc_changed = summary['total_loc_added'] + summary['total_loc_deleted']  # 总变更量
+        if not sessions:
+            return []
 
-        if total_void_min == 0:
-            return 0.0
+        from collections import defaultdict
+        from datetime import datetime, timedelta
 
-        # AI total output (converted to time) - both add and delete count
-        ai_output_min = total_loc_changed * self.HUMAN_CODING_CONSTANT
+        sessions_with_id = [s for s in sessions if s.get('session_id')]
+        sessions_without_id = [s for s in sessions if not s.get('session_id')]
 
-        # ROI Calculate
-        roi = ((ai_output_min - total_void_min) / total_void_min) * 100
+        unique_sessions = []
 
-        return roi
+        # --- New records: deduplicate by session_id ---
+        if sessions_with_id:
+            by_session_id: Dict[str, List[Dict]] = defaultdict(list)
+            for s in sessions_with_id:
+                by_session_id[s['session_id']].append(s)
+
+            for sid_group in by_session_id.values():
+                # Keep the record with the highest void_duration_ms (most complete save)
+                best = max(sid_group, key=lambda s: s.get('void_duration_ms', 0))
+                unique_sessions.append(best)
+
+        # --- Legacy records: use 5-minute time-window deduplication ---
+        if sessions_without_id:
+            grouped: Dict = defaultdict(list)
+            for session in sessions_without_id:
+                key = (session.get('tool'), session.get('project_path'))
+                grouped[key].append(session)
+
+            for group_sessions in grouped.values():
+                sorted_sessions = sorted(group_sessions, key=lambda s: s.get('timestamp', ''))
+                if not sorted_sessions:
+                    continue
+
+                window_sessions = [sorted_sessions[0]]
+                for session in sorted_sessions[1:]:
+                    try:
+                        prev_time = datetime.fromisoformat(window_sessions[-1].get('timestamp', '').replace('Z', '+00:00'))
+                        sess_time = datetime.fromisoformat(session.get('timestamp', '').replace('Z', '+00:00'))
+                        if (sess_time - prev_time) > timedelta(minutes=5):
+                            window_sessions.append(session)
+                        else:
+                            # Same session window: keep the one with higher void_duration_ms
+                            if session.get('void_duration_ms', 0) >= window_sessions[-1].get('void_duration_ms', 0):
+                                window_sessions[-1] = session
+                    except Exception:
+                        window_sessions.append(session)
+                unique_sessions.extend(window_sessions)
+
+        # Sort by timestamp to maintain chronological order
+        unique_sessions.sort(key=lambda s: s.get('timestamp', ''))
+        return unique_sessions
+
+    def _calculate_summary(self, sessions: List[Dict]) -> Dict:
+        """
+        Calculate summary statistics from deduplicated sessions
+
+        Args:
+            sessions: List of unique sessions
+
+        Returns:
+            Summary dictionary with aggregated statistics
+        """
+        total_sessions = len(sessions)
+        total_void_time_ms = sum(s.get('void_duration_ms', 0) for s in sessions)
+        total_gen_time_ms = sum(s.get('gen_duration_ms', 0) for s in sessions)
+        total_loc_added = sum(s.get('loc_added', 0) for s in sessions)
+        total_loc_deleted = sum(s.get('loc_deleted', 0) for s in sessions)
+
+        return {
+            'total_sessions': total_sessions,
+            'total_void_time_ms': total_void_time_ms,
+            'total_gen_time_ms': total_gen_time_ms,
+            'total_loc_added': total_loc_added,
+            'total_loc_deleted': total_loc_deleted,
+        }
+
+    def _calculate_daily_stats(self, sessions: List[Dict], days: int = 7) -> List[Dict]:
+        """
+        Calculate daily statistics from deduplicated sessions
+
+        Args:
+            sessions: List of unique sessions
+            days: Number of days to look back
+
+        Returns:
+            List of daily statistics
+        """
+        from collections import defaultdict
+        from datetime import datetime, timedelta, timezone
+
+        # Group by date
+        daily_data = defaultdict(lambda: {
+            'sessions': 0,
+            'total_void_ms': 0,
+            'total_loc_added': 0,
+            'total_loc_deleted': 0,
+        })
+
+        for session in sessions:
+            timestamp_str = session.get('timestamp', '')
+            if not timestamp_str:
+                continue
+
+            try:
+                dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                date_key = dt.date().isoformat()
+
+                daily_data[date_key]['sessions'] += 1
+                daily_data[date_key]['total_void_ms'] += session.get('void_duration_ms', 0)
+                daily_data[date_key]['total_loc_added'] += session.get('loc_added', 0)
+                daily_data[date_key]['total_loc_deleted'] += session.get('loc_deleted', 0)
+            except:
+                continue
+
+        # Generate last N days
+        today = datetime.now(timezone.utc).date()
+        result = []
+        for i in range(days - 1, -1, -1):
+            date = today - timedelta(days=i)
+            date_key = date.isoformat()
+            data = daily_data.get(date_key, {
+                'sessions': 0,
+                'total_void_ms': 0,
+                'total_loc_added': 0,
+                'total_loc_deleted': 0,
+            })
+            result.append({
+                'date': date_key,
+                **data
+            })
+
+        return result
 
     def _create_file_details_panel(self, recent_sessions: List[Dict]) -> Panel:
-        """Create文件详情面板 - 显示最近会话的File change details"""
+        """Create the file details panel for the most recent session"""
         if not recent_sessions:
             content = Text("No file changes recorded.", style="dim italic")
             return Panel(
@@ -473,19 +564,19 @@ class VoidDashboard:
                 border_style="blue"
             )
 
-        # Get最近的一个会话
+        # Get the most recent session
         latest_session = recent_sessions[-1]
         file_changes = latest_session.get("file_changes", [])
         tool = latest_session.get("tool", "unknown")
         timestamp = latest_session.get("timestamp", "")
 
-        # Get总的 LOC 统计（降级显示）
+        # Get total LOC stats (fallback display)
         loc_added = latest_session.get("loc_added", 0)
         loc_deleted = latest_session.get("loc_deleted", 0)
         changed_files = latest_session.get("changed_files", [])
 
         if not file_changes:
-            # Check是否有总的 LOC 数据（降级显示）
+            # Check if total LOC data is available (fallback display)
             if loc_added > 0 or loc_deleted > 0 or changed_files:
                 # Have totals but no details
                 content = Text()
@@ -515,7 +606,7 @@ class VoidDashboard:
                     border_style="blue"
                 )
             else:
-                # 完全无数据
+                # No data at all
                 content = Text("No file changes recorded.", style="dim italic")
                 return Panel(
                     content,
@@ -523,7 +614,7 @@ class VoidDashboard:
                     border_style="blue"
                 )
 
-        # Create文件详情表格
+        # Build file details table
         table = Table(
             show_header=True,
             header_style="bold blue",
@@ -537,13 +628,13 @@ class VoidDashboard:
         table.add_column("Changed", justify="right", style="yellow")
 
         total_files = len(file_changes)
-        for fc in file_changes[:10]:  # 最多显示 10 个文件
+        for fc in file_changes[:10]:  # show at most 10 files
             path = fc.get("path", "")
             loc_added = fc.get("loc_added", 0)
             loc_deleted = fc.get("loc_deleted", 0)
             total_changed = loc_added + loc_deleted
 
-            # 只显示文件名（不显示完整路径）
+            # Show filename only (not full path)
             file_name = Path(path).name if path else "unknown"
 
             table.add_row(
@@ -559,10 +650,12 @@ class VoidDashboard:
                 "", "", ""
             )
 
-        # 格式化标题时间
+        # Format title timestamp
         try:
-            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-            time_str = dt.strftime("%H:%M")
+            # Parse UTC timestamp and convert to local timezone
+            dt_utc = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            dt_local = dt_utc.astimezone()  # Convert to local timezone
+            time_str = dt_local.strftime("%H:%M")
         except:
             time_str = "recent"
 

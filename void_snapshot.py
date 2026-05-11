@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-File snapshot和差异Calculate - File Snapshot & Diff
+File Snapshot & Diff
 Phase 5: Accurate Attribution System - Only count code changes during session
 """
 
@@ -29,14 +29,14 @@ class FileDiff:
     loc_deleted: int
     loc_changed: int  # Actual changes (not net)
     was_created: bool  # Whether file was created
-    was_deleted: bool  # 文件是否被Delete
+    was_deleted: bool  # Whether the file was deleted
 
 
 class SnapshotManager:
     """
-    File snapshot管理器
+    File snapshot manager
 
-    在会话Start时RecordFile snapshot，End时对比Calculate精确的 LOC 变更
+    Records file snapshots at session start and computes accurate LOC changes at session end
     """
 
     def __init__(self):
@@ -44,20 +44,20 @@ class SnapshotManager:
 
     def take_snapshot(self, filepath: str) -> Optional[FileSnapshot]:
         """
-        对文件Create快照
+        Take a snapshot of a file
 
         Args:
             filepath: File path
 
         Returns:
-            FileSnapshot 对象，If文件无法读取则Return None
+            FileSnapshot object, or None if the file cannot be read
         """
         try:
             abs_path = os.path.abspath(filepath)
 
-            # Check文件是否存在
+            # Check if file exists
             if not os.path.exists(abs_path):
-                # 文件不存在（可能稍后会被Create）
+                # File does not exist yet (may be created later)
                 return FileSnapshot(
                     path=filepath,
                     exists=False,
@@ -86,13 +86,13 @@ class SnapshotManager:
 
     def take_snapshots(self, filepaths: List[str]) -> int:
         """
-        批量Create快照
+        Take snapshots of multiple files
 
         Args:
-            filepaths: File path列表
+            filepaths: List of file paths
 
         Returns:
-            成功Create快照的数量
+            Number of snapshots successfully taken
         """
         count = 0
         for filepath in filepaths:
@@ -104,15 +104,15 @@ class SnapshotManager:
 
     def compute_diff(self, filepath: str) -> Optional[FileDiff]:
         """
-        Calculate文件的差异（与快照对比）
+        Compute the diff for a file against its snapshot
 
         Args:
             filepath: File path
 
         Returns:
-            FileDiff 对象，If无法Calculate则Return None
+            FileDiff object, or None if the diff cannot be computed
         """
-        # Get原始快照
+        # Get original snapshot
         old_snapshot = self.snapshots.get(filepath)
         if old_snapshot is None:
             # No snapshot, possibly new file
@@ -129,12 +129,12 @@ class SnapshotManager:
                 )
             return None
 
-        # Get当前快照
+        # Get current snapshot
         current_snapshot = self.take_snapshot(filepath)
         if current_snapshot is None:
             return None
 
-        # 文件被Delete
+        # File was deleted
         if old_snapshot.exists and not current_snapshot.exists:
             return FileDiff(
                 path=filepath,
@@ -156,7 +156,7 @@ class SnapshotManager:
                 was_deleted=False
             )
 
-        # 文件未变化（快速Check）
+        # File unchanged (fast check)
         if (old_snapshot.exists and current_snapshot.exists and
             old_snapshot.size == current_snapshot.size and
             old_snapshot.mtime == current_snapshot.mtime):
@@ -169,7 +169,7 @@ class SnapshotManager:
                 was_deleted=False
             )
 
-        # Use difflib Calculate精确差异
+        # Use difflib to compute exact diff
         diff = difflib.unified_diff(
             old_snapshot.content,
             current_snapshot.content,
@@ -196,10 +196,10 @@ class SnapshotManager:
 
     def compute_all_diffs(self) -> List[FileDiff]:
         """
-        Calculate所有快照文件的差异
+        Compute diffs for all snapshotted files
 
         Returns:
-            FileDiff 对象列表
+            List of FileDiff objects
         """
         diffs = []
         for filepath in self.snapshots.keys():
@@ -210,7 +210,7 @@ class SnapshotManager:
 
     def get_total_stats(self) -> Tuple[int, int, int]:
         """
-        Get总的Statistics
+        Get aggregate statistics across all diffs
 
         Returns:
             (total_added, total_deleted, total_changed)
@@ -222,7 +222,7 @@ class SnapshotManager:
         return (total_added, total_deleted, total_changed)
 
     def clear(self):
-        """Clear所有快照"""
+        """Clear all snapshots"""
         self.snapshots.clear()
 
 
@@ -232,7 +232,7 @@ def file_diff_to_file_change(diff: FileDiff):
     Convert FileDiff to FileChange format (compatible with existing Git code)
 
     Args:
-        diff: FileDiff 对象
+        diff: FileDiff object
 
     Returns:
         FileChange in dict format
@@ -255,26 +255,26 @@ if __name__ == "__main__":
     print("=" * 60)
     print()
 
-    # Create临时Test目录
+    # Create temporary test directory
     temp_dir = tempfile.mkdtemp()
-    print(f"📁 Create临时目录: {temp_dir}")
+    print(f"📁 Temp directory: {temp_dir}")
 
     try:
-        # CreateTest文件
+        # Create test file
         test_file = os.path.join(temp_dir, "test.py")
         with open(test_file, 'w') as f:
             f.write("# Original content\n")
             f.write("def hello():\n")
             f.write("    print('Hello')\n")
-        print(f"✓ CreateTest文件: {test_file}")
+        print(f"✓ Created test file: {test_file}")
 
-        # Create快照管理器
+        # Create snapshot manager
         manager = SnapshotManager()
 
         # Take snapshot
         print("\n1️⃣  Take initial snapshot...")
         manager.take_snapshots([test_file])
-        print(f"✓ 快照已Create: {len(manager.snapshots)} 个文件")
+        print(f"✓ Snapshots taken: {len(manager.snapshots)} file(s)")
 
         # Simulate AI modifying file
         print("\n2️⃣  Simulate AI modifying file...")
@@ -286,8 +286,8 @@ if __name__ == "__main__":
             f.write("    print('Goodbye')\n")
         print("✓ File modified")
 
-        # Calculate差异
-        print("\n3️⃣  Calculate差异...")
+        # Compute diff
+        print("\n3️⃣  Computing diff...")
         diff = manager.compute_diff(test_file)
         if diff:
             print(f"✓ Difference statistics:")
@@ -307,7 +307,7 @@ if __name__ == "__main__":
         # TestNew file
         print("\n5️⃣  TestNew file...")
         new_file = os.path.join(temp_dir, "new.py")
-        manager.take_snapshots([new_file])  # 不存在的File snapshot
+        manager.take_snapshots([new_file])  # snapshot non-existent file
 
         with open(new_file, 'w') as f:
             f.write("# New file\n")
@@ -319,9 +319,9 @@ if __name__ == "__main__":
             print(f"  - Was Created:  {new_diff.was_created}")
             print(f"  - LOC Added:    +{new_diff.loc_added}")
 
-        print("\n✅ 所有Test通过！")
+        print("\n✅ All tests passed!")
 
     finally:
-        # 清理
+        # Cleanup
         shutil.rmtree(temp_dir)
         print(f"\n🧹 Clean up temporary directory")

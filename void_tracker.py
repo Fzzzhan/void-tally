@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
 Latency Tracker
-Implements precise Void time and generation duration statistics
+Implements precise Void time and generation duration statistics.
+
+Void time = TTLT (Time to Last Token): from the user pressing Enter
+to the last AI output character of that turn. Does not include the
+user's read/think time after the AI finishes.
+
+Gen time = from first AI token to last AI token (pure generation span).
 """
 
 import time
@@ -39,47 +45,168 @@ class LatencyTracker:
         self.void_durations: List[float] = []
         self.gen_durations: List[float] = []
 
+        # Interaction timing: measures from user pressing Enter (submit)
+        # to user pressing any other key (ready to type)
+        self.last_output_time: Optional[float] = None
+
+        # Auto-finalize: if AI output stops for this many seconds, end void time
+        self.idle_threshold_seconds: float = 5.0
+
         # Use high-precision timer (nanosecond level)
         self.timer = time.perf_counter
 
     def mark_input_received(self):
         """
-        Mark: User pressed Enter (Void phase starts)
+        Mark: User pressed Enter (submit request)
+
+        Start timing for a new interaction. If a previous interaction had
+        AI output (last_output_time is set), save its void and gen durations
+        before resetting — this handles the case where the user presses Enter
+        again without first typing other keys.
         """
         current_time = self.timer()
 
-        # If there's an uncompleted generation, record generation duration
-        if self.is_waiting_for_token and self.first_token_time is not None:
-            gen_duration = current_time - self.first_token_time
-            self.gen_durations.append(gen_duration * 1000)  # Convert to milliseconds
+        # Save previous interaction if it had AI output (e.g., user presses
+        # Enter again without typing first)
+        if self.input_time is not None and self.last_output_time is not None:
+            void_duration = (self.last_output_time - self.input_time) * 1000
+            self.void_durations.append(void_duration)
+            if self.first_token_time is not None:
+                gen_duration = (self.last_output_time - self.first_token_time) * 1000
+                self.gen_durations.append(gen_duration)
 
-        # Start new Void timing
+        # Start new interaction timing
         self.input_time = current_time
         self.is_waiting_for_token = True
         self.first_token_time = None
+        self.last_output_time = None
 
-    def mark_first_token_received(self):
+    def mark_user_typing(self):
         """
-        Mark: First valid character received (Void phase ends, generation phase starts)
+        Mark: User pressed a visible key (not Enter)
+
+        Records void time as TTLT (Time to Last Token): from Enter to the
+        last AI output character — excluding user read/think time.
+        Also records gen_duration = first token to last token.
         """
-        # Only record when waiting for first token
-        if not self.is_waiting_for_token or self.first_token_time is not None:
+        if self.input_time is None:
+            # No interaction in progress, ignore
+            return
+
+        # Use last AI output time as void end point (TTLT).
+        # Fall back to current time if AI never responded.
+        end_time = self.last_output_time if self.last_output_time is not None else self.timer()
+        void_duration = (end_time - self.input_time) * 1000
+        self.void_durations.append(void_duration)
+
+        # Record generation duration (first token → last token)
+        if self.first_token_time is not None and self.last_output_time is not None:
+            gen_duration = (self.last_output_time - self.first_token_time) * 1000
+            self.gen_durations.append(gen_duration)
+
+        # Clear state to prevent double-recording
+        self.input_time = None
+        self.is_waiting_for_token = False
+        self.first_token_time = None
+        self.last_output_time = None
+
+    def check_and_finalize_if_idle(self):
+        """
+        Check if AI output has stopped and auto-finalize void time.
+
+        Call this periodically (e.g., every 0.5s) to detect when AI
+        has finished outputting but user hasn't pressed any key yet.
+        This handles cases where user switches terminals or just reads
+        the output without typing.
+        """
+        if self.input_time is None:
+            # No interaction in progress
+            return
+
+        if self.last_output_time is None:
+            # AI hasn't output anything yet
             return
 
         current_time = self.timer()
-        self.first_token_time = current_time
-        self.is_waiting_for_token = False
+        idle_duration = current_time - self.last_output_time
 
-        # Calculate Void duration (TTFT)
+        if idle_duration >= self.idle_threshold_seconds:
+            # AI has been idle for threshold seconds, finalize void time
+            void_duration = (self.last_output_time - self.input_time) * 1000  # ms
+            self.void_durations.append(void_duration)
+
+            # Also record gen_duration (first token → last token)
+            if self.first_token_time is not None:
+                gen_duration = (self.last_output_time - self.first_token_time) * 1000
+                self.gen_durations.append(gen_duration)
+
+            # Clear all state
+            self.input_time = None
+            self.is_waiting_for_token = False
+            self.first_token_time = None
+            self.last_output_time = None
+
+    def mark_first_token_received(self, char_count: int = 1):
+        """
+        Mark: Output character received
+
+        Args:
+            char_count: Number of characters in this chunk (default: 1)
+
+        Track AI output timestamps for generation time metrics.
+        Void time is determined by user keystrokes, not by output.
+        """
+        if not self.is_waiting_for_token:
+            return
+
+        current_time = self.timer()
+
+        # Just update last output time (to track AI is still working)
+        self.last_output_time = current_time
+
+        # First token received marker (for generation time tracking)
+        if self.first_token_time is None:
+            self.first_token_time = current_time
+
+    def get_current_interaction_duration(self) -> float:
+        """
+        Get current ongoing interaction TTLT estimate (in ms).
+
+        If AI has already output something, returns last_output_time - input_time
+        (the TTLT is already determined). Otherwise returns elapsed time so far.
+        Returns 0 if no interaction is in progress.
+        """
         if self.input_time is not None:
-            void_duration = current_time - self.input_time
-            self.void_durations.append(void_duration * 1000)  # Convert to milliseconds
+            if self.last_output_time is not None:
+                # AI has responded; TTLT is fixed at last output time
+                return (self.last_output_time - self.input_time) * 1000
+            else:
+                # Still waiting for AI; return elapsed time
+                return (self.timer() - self.input_time) * 1000
+        return 0.0
 
     def get_statistics(self) -> SessionStatistics:
-        """Get statistics data"""
+        """
+        Get statistics data.
+
+        Includes the current in-progress interaction's TTLT estimate.
+        """
+        # Completed interactions
         total_void = sum(self.void_durations)
+
+        # Add current in-progress interaction (TTLT estimate)
+        current_duration = self.get_current_interaction_duration()
+        total_void += current_duration
+
         total_gen = sum(self.gen_durations)
+
+        # Count includes current interaction if in progress
         void_count = len(self.void_durations)
+        if self.input_time is not None:
+            void_count += 1
+
+        # Include current_duration in min/max so they are always consistent
+        all_voids = self.void_durations + ([current_duration] if self.input_time is not None else [])
 
         return SessionStatistics(
             total_void_time_ms=total_void,
@@ -87,8 +214,8 @@ class LatencyTracker:
             void_count=void_count,
             average_void_time_ms=total_void / void_count if void_count > 0 else 0.0,
             average_gen_time_ms=total_gen / len(self.gen_durations) if self.gen_durations else 0.0,
-            min_void_time_ms=min(self.void_durations) if self.void_durations else 0.0,
-            max_void_time_ms=max(self.void_durations) if self.void_durations else 0.0,
+            min_void_time_ms=min(all_voids) if all_voids else 0.0,
+            max_void_time_ms=max(all_voids) if all_voids else 0.0,
         )
 
     def get_void_durations(self) -> List[float]:

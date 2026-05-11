@@ -178,12 +178,12 @@ class VoidWatcher:
             self.watch_thread.join(timeout=2.0)
 
     def start_session(self) -> WatchSession:
-        """开始新的Watch session"""
+        """Start a new watch session"""
         self.current_session = WatchSession(start_time=time.time())
         return self.current_session
 
     def end_session(self) -> Optional[WatchSession]:
-        """结束当前Watch session"""
+        """End the current watch session"""
         if self.current_session:
             self.current_session.end_time = time.time()
             session = self.current_session

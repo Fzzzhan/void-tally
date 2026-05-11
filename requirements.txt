@@ -1,1 +1,1 @@
-rich>=13.0.0  # 终端美化和 TUI 组件
+rich>=13.0.0  # Terminal formatting and TUI components

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VoidTally 安装脚本
+VoidTally Setup Script
 """
 
 from setuptools import setup, find_packages
