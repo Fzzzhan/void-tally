@@ -252,11 +252,18 @@ voidtally board --tool aider --project .
 
 MIT
 
+## Citation
+
+If you use VoidTally in your project, please cite:
+
+```
+Fengze Han. (2025). VoidTally: Void Time Tracker for AI CLI Tools.
+https://github.com/Fzzzhan/void-tally
+```
+
 ## Links
 
 - 🐛 [Report Issues](https://github.com/Fzzzhan/void-tally/issues)
 - 💡 [Feature Requests](https://github.com/Fzzzhan/void-tally/discussions)
 
 ---
-
-**VoidTally** - Stop losing time in The Void. Start tracking your AI efficiency today! 🚀
