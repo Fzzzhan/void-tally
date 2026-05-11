@@ -173,6 +173,200 @@ def main():
             print(f"✗ Failed to clear data: {e}", file=sys.stderr)
             sys.exit(1)
 
+    elif command == "config":
+        # Configuration commands
+        if len(sys.argv) < 3:
+            print("Usage: voidtally config <subcommand>", file=sys.stderr)
+            print("\nSubcommands:", file=sys.stderr)
+            print("  email    - Configure email notifications", file=sys.stderr)
+            sys.exit(1)
+
+        subcommand = sys.argv[2]
+
+        if subcommand == "email":
+            # Interactive email configuration
+            from void_mailer import MailerConfig
+
+            print("=== VoidTally Email Configuration ===\n")
+            print("Configure email notifications for daily void time reports.\n")
+
+            try:
+                email = input("Recipient email address: ").strip()
+                if not email or '@' not in email:
+                    print("Invalid email address.", file=sys.stderr)
+                    sys.exit(1)
+
+                smtp_server = input("SMTP server (e.g., smtp.gmail.com): ").strip()
+                if not smtp_server:
+                    print("SMTP server is required.", file=sys.stderr)
+                    sys.exit(1)
+
+                smtp_port = input("SMTP port (default: 587): ").strip()
+                smtp_port = int(smtp_port) if smtp_port else 587
+
+                smtp_username = input("SMTP username (sender email): ").strip()
+                if not smtp_username:
+                    print("SMTP username is required.", file=sys.stderr)
+                    sys.exit(1)
+
+                import getpass
+                smtp_password = getpass.getpass("SMTP password: ").strip()
+                if not smtp_password:
+                    print("SMTP password is required.", file=sys.stderr)
+                    sys.exit(1)
+
+                send_time = input("Daily send time (HH:MM, default: 20:00): ").strip()
+                if not send_time:
+                    send_time = "20:00"
+
+                # Validate time format
+                try:
+                    hour, minute = send_time.split(":")
+                    int(hour)
+                    int(minute)
+                except:
+                    print("Invalid time format. Use HH:MM (e.g., 20:00)", file=sys.stderr)
+                    sys.exit(1)
+
+                # Save configuration
+                config_mgr = MailerConfig()
+                config_mgr.save_config(
+                    email=email,
+                    smtp_server=smtp_server,
+                    smtp_port=smtp_port,
+                    smtp_username=smtp_username,
+                    smtp_password=smtp_password,
+                    send_time=send_time
+                )
+
+                print(f"\n✓ Email configuration saved successfully!")
+                print(f"  Reports will be sent to: {email}")
+                print(f"  Daily send time: {send_time}")
+                print(f"\nNext steps:")
+                print(f"  1. Test the configuration: voidtally send-report")
+                print(f"  2. Set up automatic scheduling: voidtally schedule")
+
+            except (EOFError, KeyboardInterrupt):
+                print("\n\nConfiguration cancelled.", file=sys.stderr)
+                sys.exit(0)
+
+        else:
+            print(f"Unknown config subcommand: {subcommand}", file=sys.stderr)
+            sys.exit(1)
+
+    elif command == "send-report":
+        # Send daily report email now
+        from void_mailer import send_daily_report_now
+
+        print("Sending daily report email...")
+        success = send_daily_report_now()
+        sys.exit(0 if success else 1)
+
+    elif command == "schedule":
+        # Set up automatic daily email reports
+        from void_scheduler import VoidScheduler
+
+        print("=== Set up Automatic Daily Email Reports ===\n")
+        success = VoidScheduler.setup_scheduler()
+        sys.exit(0 if success else 1)
+
+    elif command == "config":
+        # Configuration commands
+        if len(sys.argv) < 3:
+            print("Usage: voidtally config <subcommand>", file=sys.stderr)
+            print("\nSubcommands:", file=sys.stderr)
+            print("  email    - Configure email notifications", file=sys.stderr)
+            sys.exit(1)
+
+        subcommand = sys.argv[2]
+
+        if subcommand == "email":
+            # Interactive email configuration
+            from void_mailer import MailerConfig
+
+            print("=== VoidTally Email Configuration ===\n")
+            print("Configure email notifications for daily void time reports.\n")
+
+            try:
+                email = input("Recipient email address: ").strip()
+                if not email or '@' not in email:
+                    print("Invalid email address.", file=sys.stderr)
+                    sys.exit(1)
+
+                smtp_server = input("SMTP server (e.g., smtp.gmail.com): ").strip()
+                if not smtp_server:
+                    print("SMTP server is required.", file=sys.stderr)
+                    sys.exit(1)
+
+                smtp_port = input("SMTP port (default: 587): ").strip()
+                smtp_port = int(smtp_port) if smtp_port else 587
+
+                smtp_username = input("SMTP username (sender email): ").strip()
+                if not smtp_username:
+                    print("SMTP username is required.", file=sys.stderr)
+                    sys.exit(1)
+
+                import getpass
+                smtp_password = getpass.getpass("SMTP password: ").strip()
+                if not smtp_password:
+                    print("SMTP password is required.", file=sys.stderr)
+                    sys.exit(1)
+
+                send_time = input("Daily send time (HH:MM, default: 20:00): ").strip()
+                if not send_time:
+                    send_time = "20:00"
+
+                # Validate time format
+                try:
+                    hour, minute = send_time.split(":")
+                    int(hour)
+                    int(minute)
+                except:
+                    print("Invalid time format. Use HH:MM (e.g., 20:00)", file=sys.stderr)
+                    sys.exit(1)
+
+                # Save configuration
+                config_mgr = MailerConfig()
+                config_mgr.save_config(
+                    email=email,
+                    smtp_server=smtp_server,
+                    smtp_port=smtp_port,
+                    smtp_username=smtp_username,
+                    smtp_password=smtp_password,
+                    send_time=send_time
+                )
+
+                print(f"\n✓ Email configuration saved successfully!")
+                print(f"  Reports will be sent to: {email}")
+                print(f"  Daily send time: {send_time}")
+                print(f"\nNext steps:")
+                print(f"  1. Test the configuration: voidtally send-report")
+                print(f"  2. Set up automatic scheduling: voidtally schedule")
+
+            except (EOFError, KeyboardInterrupt):
+                print("\n\nConfiguration cancelled.", file=sys.stderr)
+                sys.exit(0)
+
+        else:
+            print(f"Unknown config subcommand: {subcommand}", file=sys.stderr)
+            sys.exit(1)
+
+    elif command == "send-report":
+        # Send daily report email now
+        from void_mailer import send_daily_report_now
+
+        print("Sending daily report email...")
+        success = send_daily_report_now()
+        sys.exit(0 if success else 1)
+
+    elif command == "schedule":
+        # Set up automatic daily email reports
+        from void_scheduler import VoidScheduler
+
+        print("=== Set up Automatic Daily Email Reports ===\n")
+        success = VoidScheduler.setup_scheduler()
+        sys.exit(0 if success else 1)
+
     else:
         print(f"Unknown command: {command}", file=sys.stderr)
         sys.exit(1)

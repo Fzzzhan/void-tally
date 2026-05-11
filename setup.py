@@ -21,6 +21,8 @@ setup(
         "void_git",
         "void_snapshot",
         "void_char_counter",
+        "void_mailer",
+        "void_scheduler",
     ],
     install_requires=[
         "rich>=10.0.0",

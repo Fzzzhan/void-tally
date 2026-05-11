@@ -11,6 +11,7 @@ A non-intrusive performance observation tool for AI CLI developers. VoidTally qu
 - 🎯 **Zero-Impact Monitoring**: PTY proxy with 100% ANSI passthrough
 - ⏱️ **Precise Timing**: Measures TTLT (Time to Last Token) — from Enter (submit) to the last AI output character
 - 📊 **Rich TUI Dashboard**: Statistics, 7-day trends, and file details
+- 📧 **Email Reports**: Automated daily void time reports with HTML formatting
 - 📸 **Snapshot Attribution**: Accurate LOC tracking even without Git
 - 🔍 **Smart Filtering**: Filter by tool and project for targeted analysis
 - 🔒 **Privacy First**: All data stored locally, no cloud uploads
@@ -68,6 +69,11 @@ voidtally projects
 
 # Clear all data (with backup)
 voidtally clear
+
+# Email notifications
+voidtally config email    # Configure email settings
+voidtally send-report     # Send daily report now
+voidtally schedule        # Set up automatic daily reports
 ```
 
 ## Dashboard Features
@@ -81,6 +87,57 @@ The TUI dashboard displays:
 - **📄 File Details**: Per-file LOC statistics from latest session
 
 All panels support filtering by `--tool` and `--project` for targeted analysis.
+
+## Email Notifications
+
+VoidTally can send automated daily email reports with your void time statistics.
+
+### Setup
+
+**1. Configure Email Settings**
+
+```bash
+voidtally config email
+```
+
+You'll be prompted to enter:
+- Recipient email address
+- SMTP server (e.g., `smtp.gmail.com` for Gmail)
+- SMTP port (default: 587)
+- SMTP username and password
+- Daily send time (default: 20:00)
+
+**Note for Gmail users**: Use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password.
+
+**2. Test the Configuration**
+
+```bash
+voidtally send-report
+```
+
+This sends today's report immediately to verify your settings.
+
+**3. Enable Automatic Daily Reports**
+
+```bash
+voidtally schedule
+```
+
+This will:
+- **Linux/macOS**: Show instructions to add a cron job
+- **Windows**: Show instructions to create a Task Scheduler task
+
+### Email Report Contents
+
+Each daily report includes:
+- ⏱️ Total void time (formatted as hours/minutes/seconds)
+- 📊 Number of sessions
+- 📝 LOC added/deleted/net change
+- 📋 Individual session details with timestamps
+
+Reports are sent as HTML emails with color-coded statistics and session breakdowns.
+
+For detailed setup instructions, see [EMAIL_NOTIFICATION.md](EMAIL_NOTIFICATION.md).
 
 ## How It Works
 
