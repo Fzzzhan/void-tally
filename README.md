@@ -5,7 +5,7 @@ A non-intrusive performance observation tool for AI CLI developers. VoidTally qu
 ## Features
 
 - 🎯 **Zero-Impact Monitoring**: PTY proxy with 100% ANSI passthrough
-- ⏱️ **Precise Timing**: Measures from Enter (submit) to any key press (ready to continue)
+- ⏱️ **Precise Timing**: Measures TTLT (Time to Last Token) — from Enter (submit) to the last AI output character
 - 📊 **Rich TUI Dashboard**: Statistics, 7-day trends, and file details
 - 📸 **Snapshot Attribution**: Accurate LOC tracking even without Git
 - 🔍 **Smart Filtering**: Filter by tool and project for targeted analysis
@@ -39,7 +39,10 @@ pip install voidtally
 voidtally run aider
 voidtally run claude
 
-# GitHub Copilot CLI (gh copilot)
+# GitHub Copilot CLI (standalone snap binary)
+voidtally run copilot
+
+# GitHub Copilot via gh extension (if using gh copilot)
 voidtally run gh copilot suggest
 voidtally run gh copilot explain
 
@@ -48,7 +51,8 @@ voidtally board
 
 # Filter by tool
 voidtally board --tool aider
-voidtally board --tool gh-copilot   # GitHub Copilot sessions
+voidtally board --tool copilot      # GitHub Copilot (snap binary)
+voidtally board --tool gh-copilot   # GitHub Copilot (gh extension)
 
 # Filter by project
 voidtally board --project .
@@ -79,8 +83,8 @@ All panels support filtering by `--tool` and `--project` for targeted analysis.
 VoidTally uses **PTY (pseudo-terminal) proxy technology** to transparently monitor AI CLI tools:
 
 1. **PTY Proxy**: Creates pseudo-terminal to intercept stdin/stdout without modifying the target CLI
-2. **Void Observer**: Measures void time from Enter (submit request) to any key press (ready to continue)
-3. **Auto-finalize**: If AI output stops for 5 seconds, void time automatically ends (handles multi-terminal scenarios)
+2. **Void Observer**: Measures void time as TTLT — from Enter (submit request) to the last AI output character. The measurement is finalized when the user starts typing again, or automatically after the AI goes idle.
+3. **Auto-finalize**: If AI output stops for 5 seconds with no further tokens, void time is recorded and the state resets. If no AI token arrives within 5 minutes of pressing Enter (e.g. session left open overnight), the interaction is discarded to prevent inflated measurements.
 4. **Snapshot System**: Takes before/after snapshots of source files to calculate exact LOC changes
 5. **Attribution Methods**:
    - **📸 Snapshot** (accurate): Uses file snapshots - works without Git
@@ -99,11 +103,11 @@ VoidTally uses **PTY (pseudo-terminal) proxy technology** to transparently monit
 
 - ✅ **Aider** — `voidtally run aider`
 - ✅ **Claude CLI** — `voidtally run claude`
-- ✅ **GitHub Copilot CLI** — `voidtally run gh copilot` *(automatically stored as `gh-copilot`)*
+- ✅ **GitHub Copilot CLI** — `voidtally run copilot` *(snap binary, stored as `copilot`)* or `voidtally run gh copilot suggest` / `voidtally run gh copilot explain` *(gh extension, stored as `gh-copilot`)*
 - ✅ **Codex CLI** — `voidtally run codex`
 - ✅ **Any AI CLI** — VoidTally works with all terminal-based tools
 
-> **Note on `gh copilot`**: Because `gh` is the GitHub CLI (not an AI tool by itself), VoidTally automatically maps `gh copilot …` to the tool name `gh-copilot` so it appears correctly on the dashboard. Use `voidtally board --tool gh-copilot` to filter specifically for Copilot sessions.
+> **Note on GitHub Copilot**: The standalone snap binary (`copilot`) is stored directly as `copilot`. If you use the `gh` extension instead (`gh copilot …`), VoidTally automatically maps it to `gh-copilot` so it isn't filtered out as a generic `gh` command. Use `voidtally board --tool copilot` or `--tool gh-copilot` depending on how you invoke it.
 
 ## Troubleshooting
 
@@ -153,7 +157,8 @@ VoidTally supports flexible filtering for targeted analysis:
 # By tool
 voidtally board --tool aider
 voidtally board --tool claude
-voidtally board --tool gh-copilot   # GitHub Copilot (gh copilot)
+voidtally board --tool copilot      # GitHub Copilot (snap binary)
+voidtally board --tool gh-copilot   # GitHub Copilot (gh extension)
 
 # By project (all formats work)
 voidtally board --project .
@@ -170,6 +175,7 @@ voidtally board --tool aider --project .
 
 | Command | Stored as |
 |---------|-----------|
+| `copilot …` | `copilot` |
 | `gh copilot …` | `gh-copilot` |
 | `aider …` | `aider` |
 | `claude …` | `claude` |
